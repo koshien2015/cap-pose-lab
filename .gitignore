@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.vite/
+coverage/
+*.log
+.DS_Store
+.env*
+# モデルは CI で書き出して Pages に同梱する（git には入れない）
+*.pt
+*.onnx
+public/models/*.onnx
