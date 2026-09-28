@@ -1,0 +1,11 @@
+@import 'tailwindcss';
+
+:root {
+  color-scheme: light dark;
+}
+
+body {
+  margin: 0;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  font-family: system-ui, -apple-system, 'Hiragino Sans', sans-serif;
+}

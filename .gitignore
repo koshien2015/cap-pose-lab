@@ -9,3 +9,4 @@ coverage/
 *.pt
 *.onnx
 public/models/*.onnx
+public/ort/
