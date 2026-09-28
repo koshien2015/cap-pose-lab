@@ -9,4 +9,7 @@ afterEach(cleanup);
 // jsdom には canvas が無い。描画内容はテストしないので、何もしない 2D コンテキストを返す
 const noop = () => undefined;
 const fakeContext = new Proxy({}, { get: (_t, key) => (key === 'canvas' ? undefined : noop), set: () => true });
-HTMLCanvasElement.prototype.getContext = (() => fakeContext) as unknown as HTMLCanvasElement['getContext'];
+if (typeof HTMLCanvasElement !== 'undefined') {
+  // node 環境のテスト（@vitest-environment node）には DOM が無い
+  HTMLCanvasElement.prototype.getContext = (() => fakeContext) as unknown as HTMLCanvasElement['getContext'];
+}
