@@ -80,7 +80,7 @@ export async function createSession(model: Uint8Array, ep: ExecutionProvider): P
       wasmThreads: ort.env.wasm.numThreads ?? 1,
     };
   } catch (error) {
-    throw new Error(`セッションを作れませんでした（${ep}）: ${String(error)}`);
+    throw new Error(`セッションを作れませんでした（${ep}）: ${String(error)}`, { cause: error });
   }
 }
 
