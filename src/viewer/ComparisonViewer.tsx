@@ -84,9 +84,10 @@ export function ComparisonViewer({ payload }: { readonly payload: ViewerPayload 
   const nudge = useCallback(
     (delta: number) => {
       setPlaying(false);
-      setCursor(Math.min(range.max, Math.max(range.min, cursor + delta)));
+      // 連打しても押した回数だけ進むよう、直前の値から計算する
+      setCursor((c) => Math.min(range.max, Math.max(range.min, Math.min(range.max, Math.max(range.min, c)) + delta)));
     },
-    [range, cursor],
+    [range],
   );
 
   useEffect(() => {
@@ -171,8 +172,13 @@ export function ComparisonViewer({ payload }: { readonly payload: ViewerPayload 
             {ticks.map((t) => (
               <span
                 key={`${t.index}-${t.name}`}
-                className="absolute -translate-x-1/2 whitespace-nowrap"
-                style={{ left: `${((t.at - range.min) / span) * 100}%`, color: COLORS[t.index] }}
+                className="absolute whitespace-nowrap"
+                style={{
+                  left: `${((t.at - range.min) / span) * 100}%`,
+                  // 端の目盛りの文字が画面からはみ出さないよう、左右で寄せ方を変える
+                  transform: `translateX(${t.at - range.min < span * 0.15 ? '0' : t.at - range.min > span * 0.85 ? '-100%' : '-50%'})`,
+                  color: COLORS[t.index],
+                }}
               >
                 │{EVENT_LABELS[t.name]}
               </span>

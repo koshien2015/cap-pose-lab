@@ -41,3 +41,17 @@ describe('ComparisonViewer', () => {
     expect(screen.getByText(/力そのものではありません/)).toBeInTheDocument();
   });
 });
+
+describe('ComparisonViewer のコマ送り', () => {
+  it('「次のコマ」を続けて押すと、押した回数だけ進む', async () => {
+    render(<ComparisonViewer payload={payload} />);
+    const slider = screen.getByRole('slider', { name: 'コマ' }) as HTMLInputElement;
+    const before = Number(slider.value);
+    const next = screen.getByRole('button', { name: '次のコマ' });
+    next.click();
+    next.click();
+    next.click();
+    await screen.findByRole('slider', { name: 'コマ' });
+    expect(Number(slider.value)).toBe(before + 3);
+  });
+});

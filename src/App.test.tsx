@@ -18,4 +18,10 @@ describe('App', () => {
     expect(screen.getByText('この端末で解析できるか確認しています…')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '次へ' })).toBeDisabled();
   });
+
+  it('はじめに画面から、保存した解析結果を読み込んで比べる入口がある', async () => {
+    render(<App />);
+    await userEvent.click(screen.getByRole('button', { name: '保存した解析結果で比べる' }));
+    expect(screen.getByText(/保存した解析結果（_pose.json）を選ぶ/)).toBeInTheDocument();
+  });
 });

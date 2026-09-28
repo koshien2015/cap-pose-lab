@@ -52,11 +52,18 @@ export function ReadoutTable({ payload, cursor, state, joints }: Props) {
       <thead>
         <tr className="border-b border-current/20 text-left">
           <th className="py-1 font-normal opacity-70">項目</th>
-          <th className="py-1 text-right" style={{ color: COLORS[0] }}>
-            {pitches[0].display_name}
+          <th className="py-1 text-right">
+            {/* 骨格の色は暗い背景向けなので、明るい背景でも読めるよう色は印だけに付ける */}
+            <span style={{ color: COLORS[0] }}>■</span> {pitches[0].display_name}
           </th>
-          <th className="py-1 text-right" style={{ color: COLORS[1] }}>
-            {pitches[1]?.display_name ?? '—'}
+          <th className="py-1 text-right">
+            {pitches[1] ? (
+              <>
+                <span style={{ color: COLORS[1] }}>■</span> {pitches[1].display_name}
+              </>
+            ) : (
+              '—'
+            )}
           </th>
           <th className="py-1 text-right font-normal opacity-70">差</th>
         </tr>

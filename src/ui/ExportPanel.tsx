@@ -17,7 +17,7 @@ export function ExportPanel({ items }: { readonly items: readonly Item[] }) {
           {i.fileName} を保存
         </button>
       ))}
-      <p className="text-sm opacity-80">フォームの比較画面は準備中です。保存したファイルは、あとで比較に使えます。</p>
+      <p className="text-sm opacity-80">保存したファイルは、はじめの画面の「保存した解析結果で比べる」から、あとで比較に使えます。</p>
     </section>
   );
 }

@@ -8,6 +8,7 @@ import { estimateSeconds } from './inference/estimate';
 import { formatDuration } from './inference/eta';
 import { loadManifest, type Manifest, type ModeId, modelUrl } from './inference/manifest';
 import { fetchModel, isModelCached, openModelCache, ORT_RUNTIME_MB } from './inference/modelStore';
+import type { CompareInput } from './flow/compare';
 import { analyzeAll, createSessionWithFallback } from './flow/runAnalysis';
 import { isDecoderSupported, loadPickedVideos, type PickedVideo } from './flow/pickVideos';
 import { createSession, isOrtRuntimeLoaded } from './inference/ortSession';
@@ -16,23 +17,32 @@ import { analyzeVideo, type PoseRun } from './inference/runPose';
 import { loadMeasuredSpeed, saveMeasuredSpeed } from './inference/speedStore';
 import { demuxVideo } from './inference/videoSource';
 import { findInitialPitcher, trackPitcher } from './tracking/pitcherTracking';
+import { CompareFlow } from './ui/CompareFlow';
 import { DownloadConsent, type DownloadItem } from './ui/DownloadConsent';
 import { downloadJson } from './ui/download';
 import { EnvStatus } from './ui/EnvStatus';
 import { ExportPanel } from './ui/ExportPanel';
 import { ModePicker } from './ui/ModePicker';
 import { PitcherConfirm } from './ui/PitcherConfirm';
+import { PoseFileLoader } from './ui/PoseFileLoader';
 import { type ProgressState, RunProgress } from './ui/RunProgress';
 import { StartScreen } from './ui/StartScreen';
 import { VideoPicker } from './ui/VideoPicker';
 import { useWakeLock } from './ui/useWakeLock';
 
-type Step = 'start' | 'setup' | 'consent' | 'running' | 'result';
+type Step = 'start' | 'setup' | 'consent' | 'running' | 'result' | 'load' | 'compare';
 
 interface Tracked {
   readonly run: PoseRun;
   readonly track: (Person | null)[];
   readonly selection: 'auto' | 'tap';
+}
+
+const stem = (name: string) => name.replace(/\.[^.]+$/, '');
+
+/** 比較の初期設定。投げ腕・打者の向きは指定画面で直してもらう */
+function defaultConfig(pitchId: string, fps: number): CompareInput['config'] {
+  return { pitchId, label: '', throwingHand: 'right', batterDirection: 'left', fps, footContactFrame: null, releaseFrame: null };
 }
 
 function autoTrack(run: PoseRun): Tracked {
@@ -50,6 +60,7 @@ export function App() {
   const [progress, setProgress] = useState<ProgressState>({ label: '', done: 0, total: 0, eta: '' });
   const [results, setResults] = useState<Tracked[]>([]);
   const [error, setError] = useState<FriendlyError | null>(null);
+  const [compareInputs, setCompareInputs] = useState<CompareInput[]>([]);
   const abortRef = useRef<AbortController | null>(null);
   const rec = useMemo(() => (report ? recommend(report) : null), [report]);
   // 自分で選ぶまでは、その端末でのおすすめを選んだ状態にする
@@ -137,6 +148,21 @@ export function App() {
     }
   }, [model, ep, mode, ready]);
 
+  const modelLabel = `${model?.weights}@${model?.imgsz}`;
+  const startCompareFromResults = () => {
+    setCompareInputs(
+      results.map((t) => ({
+        // 保存した pose.json と同じ経路にし、読み込み時と実行時で結果がずれないようにする
+        json: toPoseJson(t.run, t.track, { modelLabel, selection: t.selection }),
+        thumbnails: t.run.thumbnails,
+        thumbStride: t.run.thumbStride,
+        size: { width: t.run.width, height: t.run.height },
+        config: defaultConfig(stem(t.run.fileName), t.run.fps),
+      })),
+    );
+    setStep('compare');
+  };
+
   const repick = (i: number, frame: number, index: number) =>
     setResults((prev) =>
       prev.map((t, k) => (k === i ? { ...t, track: trackPitcher(t.run.frames, { frame, index }), selection: 'tap' } : t)),
@@ -160,7 +186,28 @@ export function App() {
           </details>
         </section>
       )}
-      {step === 'start' && <StartScreen onStart={() => setStep('setup')} />}
+      {step === 'start' && <StartScreen onStart={() => setStep('setup')} onLoadSaved={() => setStep('load')} />}
+      {step === 'load' && (
+        <>
+          <PoseFileLoader
+            onLoad={(files) => {
+              setCompareInputs(
+                files.map((f) => ({
+                  json: f.json,
+                  thumbnails: null,
+                  thumbStride: 1,
+                  config: defaultConfig(f.json.meta.pitch_id || stem(f.name), f.json.meta.fps),
+                })),
+              );
+              setStep('compare');
+            }}
+          />
+          <button type="button" onClick={() => setStep('start')} className="w-full min-h-11 rounded-xl border border-current/40">
+            戻る
+          </button>
+        </>
+      )}
+      {step === 'compare' && <CompareFlow inputs={compareInputs} onExit={() => setStep('start')} />}
       {step === 'setup' && (
         <>
           <EnvStatus report={report} rec={rec} />
@@ -192,14 +239,14 @@ export function App() {
           {results.map((t, i) => (
             <PitcherConfirm key={t.run.fileName} run={t.run} track={t.track} onPick={(f, idx) => repick(i, f, idx)} />
           ))}
+          <button type="button" onClick={startCompareFromResults} className="w-full min-h-11 rounded-xl bg-cyan-600 font-bold text-white">
+            フォームを比べる（足接地とリリースを指定）
+          </button>
           <ExportPanel
             items={results.map((t) => ({
               fileName: poseJsonFileName(t.run.fileName),
               onSave: () =>
-                downloadJson(
-                  poseJsonFileName(t.run.fileName),
-                  toPoseJson(t.run, t.track, { modelLabel: `${model?.weights}@${model?.imgsz}`, selection: t.selection }),
-                ),
+                downloadJson(poseJsonFileName(t.run.fileName), toPoseJson(t.run, t.track, { modelLabel, selection: t.selection })),
             }))}
           />
         </>

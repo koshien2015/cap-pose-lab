@@ -1,4 +1,4 @@
-export function StartScreen({ onStart }: { readonly onStart: () => void }) {
+export function StartScreen({ onStart, onLoadSaved }: { readonly onStart: () => void; readonly onLoadSaved: () => void }) {
   return (
     <section className="space-y-4">
       <p>スマホで撮った投球動画から、投手の体の動き（骨格）を取り出します。</p>
@@ -9,6 +9,9 @@ export function StartScreen({ onStart }: { readonly onStart: () => void }) {
       </ul>
       <button type="button" onClick={onStart} className="w-full min-h-11 rounded-xl bg-cyan-600 font-bold text-white">
         はじめる
+      </button>
+      <button type="button" onClick={onLoadSaved} className="w-full min-h-11 rounded-xl border border-current/40">
+        保存した解析結果で比べる
       </button>
     </section>
   );
