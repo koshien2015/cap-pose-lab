@@ -26,6 +26,40 @@ function keypointBounds(frames: readonly Frame[]) {
   return { minX: minX - pad, minY: minY - pad, width: maxX - minX + pad * 2, height: maxY - minY + pad * 2 };
 }
 
+interface Box {
+  readonly minX: number;
+  readonly minY: number;
+  readonly width: number;
+  readonly height: number;
+}
+
+export interface Layout {
+  readonly width: number;
+  readonly height: number;
+  readonly scale: number;
+  readonly offsetX: number;
+  readonly offsetY: number;
+  readonly toCanvas: (x: number, y: number) => readonly [number, number];
+}
+
+/** 映像（または骨格の範囲）を、縦横比を保ったまま中央に置く。画像と骨格は必ずこの同じ配置で描く */
+export function fitLayout(box: Box, canvasWidth: number, maxHeight: number): Layout {
+  const height = Math.min((canvasWidth * box.height) / box.width, maxHeight);
+  const scale = Math.min(canvasWidth / box.width, height / box.height);
+  const offsetX = (canvasWidth - box.width * scale) / 2;
+  const offsetY = (height - box.height * scale) / 2;
+  return {
+    width: canvasWidth,
+    height,
+    scale,
+    offsetX,
+    offsetY,
+    toCanvas: (x, y) => [offsetX + (x - box.minX) * scale, offsetY + (y - box.minY) * scale],
+  };
+}
+
+const MAX_HEIGHT = 480;
+
 export function drawPoseFrame(
   canvas: HTMLCanvasElement,
   frames: readonly Frame[],
@@ -35,16 +69,18 @@ export function drawPoseFrame(
 ): void {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
-  const box = thumb && size ? { minX: 0, minY: 0, width: size.width, height: size.height } : keypointBounds(frames);
-  const width = canvas.clientWidth || 320;
-  const height = Math.min((width * box.height) / box.width, 480);
-  canvas.width = width;
-  canvas.height = height;
+  const box: Box = thumb && size ? { minX: 0, minY: 0, width: size.width, height: size.height } : keypointBounds(frames);
+  const layout = fitLayout(box, canvas.clientWidth || 320, MAX_HEIGHT);
+  const ratio = window.devicePixelRatio || 1;
+  canvas.width = layout.width * ratio;
+  canvas.height = layout.height * ratio;
+  canvas.style.height = `${layout.height}px`;
+  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
   ctx.fillStyle = '#0A1013';
-  ctx.fillRect(0, 0, width, height);
-  if (thumb && size) ctx.drawImage(thumb, 0, 0, width, height);
-  const scale = Math.min(width / box.width, height / box.height);
-  const to = (x: number, y: number) => [(x - box.minX) * scale, (y - box.minY) * scale] as const;
+  ctx.fillRect(0, 0, layout.width, layout.height);
+  if (thumb && size) {
+    ctx.drawImage(thumb, layout.offsetX, layout.offsetY, box.width * layout.scale, box.height * layout.scale);
+  }
   const k = frames[position]?.keypoints ?? {};
   ctx.strokeStyle = '#06b6d4';
   ctx.lineWidth = 3;
@@ -52,8 +88,8 @@ export function drawPoseFrame(
     const p = k[a];
     const q = k[b];
     if (!p || !q || p[0] === null || p[1] === null || q[0] === null || q[1] === null) return;
-    const [x1, y1] = to(p[0], p[1]);
-    const [x2, y2] = to(q[0], q[1]);
+    const [x1, y1] = layout.toCanvas(p[0], p[1]);
+    const [x2, y2] = layout.toCanvas(q[0], q[1]);
     ctx.beginPath();
     ctx.moveTo(x1, y1);
     ctx.lineTo(x2, y2);

@@ -20,6 +20,18 @@ export interface ViewState {
 /** 実フレーム（f あり）か、進行率で並べ直したコマ（f なし） */
 export type Frameish = Pick<ViewerFrame, 'k'> & { readonly f?: number };
 
+const JOINT_LABELS: Readonly<Record<string, string>> = {
+  nose: '鼻', left_eye: '左目', right_eye: '右目', left_ear: '左耳', right_ear: '右耳',
+  left_shoulder: '左肩', right_shoulder: '右肩', left_elbow: '左肘', right_elbow: '右肘',
+  left_wrist: '左手首', right_wrist: '右手首', left_hip: '左腰', right_hip: '右腰',
+  left_knee: '左膝', right_knee: '右膝', left_ankle: '左足首', right_ankle: '右足首',
+};
+
+/** 画面に出す関節名（内部名は出さない） */
+export function jointLabel(name: string): string {
+  return JOINT_LABELS[name] ?? name;
+}
+
 export function defaultSync(payload: ViewerPayload): SyncMode {
   return payload.pitches.some((p) => !p.normalized) ? 'release' : 'progress';
 }

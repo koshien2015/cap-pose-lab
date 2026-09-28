@@ -28,6 +28,13 @@ describe('CompareFlow', () => {
     expect(screen.getByRole('button', { name: '比べる' })).toBeInTheDocument();
   });
 
+  it('戻り先のボタン名を指定できる（解析結果から来たときは解析結果に戻る）', async () => {
+    let exited = false;
+    render(<CompareFlow inputs={[inputOf('clean_right')]} exitLabel="解析結果に戻る" onExit={() => (exited = true)} />);
+    await userEvent.click(screen.getByRole('button', { name: '解析結果に戻る' }));
+    expect(exited).toBe(true);
+  });
+
   it('比べられないときは画面内に理由を出す', async () => {
     render(<CompareFlow inputs={[inputOf('no_shoulders')]} onExit={() => undefined} />);
     await userEvent.click(screen.getByRole('button', { name: '比べる' }));

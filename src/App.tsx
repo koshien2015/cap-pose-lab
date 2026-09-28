@@ -61,6 +61,8 @@ export function App() {
   const [results, setResults] = useState<Tracked[]>([]);
   const [error, setError] = useState<FriendlyError | null>(null);
   const [compareInputs, setCompareInputs] = useState<CompareInput[]>([]);
+  // 比較から戻る先（解析から来たときは、保存前の結果を失わないよう結果画面に戻す）
+  const [compareFrom, setCompareFrom] = useState<'result' | 'start'>('start');
   const abortRef = useRef<AbortController | null>(null);
   const rec = useMemo(() => (report ? recommend(report) : null), [report]);
   // 自分で選ぶまでは、その端末でのおすすめを選んだ状態にする
@@ -160,6 +162,7 @@ export function App() {
         config: defaultConfig(stem(t.run.fileName), t.run.fps),
       })),
     );
+    setCompareFrom('result');
     setStep('compare');
   };
 
@@ -199,6 +202,7 @@ export function App() {
                   config: defaultConfig(f.json.meta.pitch_id || stem(f.name), f.json.meta.fps),
                 })),
               );
+              setCompareFrom('start');
               setStep('compare');
             }}
           />
@@ -207,7 +211,13 @@ export function App() {
           </button>
         </>
       )}
-      {step === 'compare' && <CompareFlow inputs={compareInputs} onExit={() => setStep('start')} />}
+      {step === 'compare' && (
+        <CompareFlow
+          inputs={compareInputs}
+          exitLabel={compareFrom === 'result' ? '解析結果に戻る' : '最初に戻る'}
+          onExit={() => setStep(compareFrom)}
+        />
+      )}
       {step === 'setup' && (
         <>
           <EnvStatus report={report} rec={rec} />

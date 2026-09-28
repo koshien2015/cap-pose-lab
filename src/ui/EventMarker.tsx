@@ -28,7 +28,7 @@ function Choice<T extends string>({ name, value, options, onPick }: { name: stri
 export function EventMarker({ input, onChange }: Props) {
   const { json, thumbnails, thumbStride, config } = input;
   const frames = useMemo(() => [...json.frames].sort((a, b) => a.frame_index - b.frame_index), [json]);
-  const stride = thumbnails ? thumbStride : 1;
+  const stride = thumbnails ? Math.max(1, thumbStride) : 1;
   const [position, setPosition] = useState(0);
   const [problem, setProblem] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -37,7 +37,8 @@ export function EventMarker({ input, onChange }: Props) {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const thumb = thumbnails ? (thumbnails[Math.floor(position / stride)] ?? null) : null;
+    // 縮小画像は間引いてあるので、直前の縮小画像を出し、骨格はそのコマのものを描く
+    const thumb = thumbnails ? (thumbnails[Math.min(thumbnails.length - 1, Math.floor(position / stride))] ?? null) : null;
     drawPoseFrame(canvas, frames, position, thumb, input.size ?? null);
   }, [frames, position, thumbnails, stride, input.size]);
 
@@ -57,17 +58,17 @@ export function EventMarker({ input, onChange }: Props) {
         aria-label="コマ"
         min={0}
         max={Math.max(0, frames.length - 1)}
-        step={stride}
+        step={1}
         value={position}
         onChange={(e) => setPosition(Number(e.target.value))}
         className="h-11 w-full"
       />
       <div className="flex gap-2">
-        <button type="button" aria-label="前のコマ" className={`${button} flex-1`} onClick={() => move(-stride)}>
+        <button type="button" aria-label="前のコマ" className={`${button} flex-1`} onClick={() => move(-1)}>
           ◀ 前
         </button>
         <span className="flex min-h-11 flex-1 items-center justify-center text-sm tabular-nums">コマ {frame ?? '—'}</span>
-        <button type="button" aria-label="次のコマ" className={`${button} flex-1`} onClick={() => move(stride)}>
+        <button type="button" aria-label="次のコマ" className={`${button} flex-1`} onClick={() => move(1)}>
           次 ▶
         </button>
       </div>

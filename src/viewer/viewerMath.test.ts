@@ -4,7 +4,7 @@ import pair from '../analysis/__fixtures__/pair.json';
 import { loadFixture } from '../analysis/fixtures';
 import type { ViewerPayload } from '../analysis/payload';
 import {
-  anchorIndex, cursorOfFrame, cursorRange, defaultSync, diffText, formatMagnitude, frameAt, realIndex, vectorAt,
+  anchorIndex, cursorOfFrame, jointLabel, cursorRange, defaultSync, diffText, formatMagnitude, frameAt, realIndex, vectorAt,
   type ViewState,
 } from './viewerMath';
 
@@ -59,6 +59,13 @@ describe('viewerMath', () => {
   it('イベントの目盛り位置（進行率モードはリリースが右端）', () => {
     const a = P.pitches[0];
     expect(cursorOfFrame(a, a.events.release.frame!, state({ sync: 'progress' }), 101)).toBe(100);
+  });
+
+  it('関節名は日本語で表示する（内部名を画面に出さない）', () => {
+    expect(jointLabel('left_shoulder')).toBe('左肩');
+    expect(jointLabel('right_wrist')).toBe('右手首');
+    expect(jointLabel('nose')).toBe('鼻');
+    expect(jointLabel('unknown_point')).toBe('unknown_point');
   });
 
   it('表示用の数値', () => {

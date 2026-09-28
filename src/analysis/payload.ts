@@ -7,7 +7,7 @@
  */
 
 import type { PanelKey, PitchAnalysis } from './analyzePitch';
-import { leadSideOf } from './analyzePitch';
+import { leadSideOf, PREPROCESSING } from './analyzePitch';
 import type { EventName } from './events';
 import { facingSign, midpoint, type Point } from './geometry';
 import { pointAt } from './tracks';
@@ -115,16 +115,24 @@ function displayFrames(a: PitchAnalysis, origin: Point, scale: number, sign: num
   });
 }
 
-/** np.interp(x, xp, fp, left=nan, right=nan) と同じ（xp は昇順） */
-function interp(x: number, xp: readonly number[], fp: readonly number[]): number {
+/**
+ * np.interp(x, xp, fp, left=nan, right=nan) と同じ（xp は昇順）。
+ * ただし broken[j] が true の区間（j と j+1 の間）は補間せず NaN にする。
+ */
+function interp(x: number, xp: readonly number[], fp: readonly number[], broken: readonly boolean[]): number {
   const n = xp.length;
   if (x < xp[0] || x > xp[n - 1]) return Number.NaN;
   if (x === xp[n - 1]) return fp[n - 1];
   let j = 0;
   while (j < n - 2 && xp[j + 1] <= x) j += 1;
+  if (x === xp[j]) return fp[j];
+  if (broken[j]) return Number.NaN;
   const span = xp[j + 1] - xp[j];
   return span === 0 ? fp[j] : fp[j] + ((fp[j + 1] - fp[j]) * (x - xp[j])) / span;
 }
+
+/** 補間しない長さの欠損（前処理で埋めなかったもの） */
+const LONG_GAP_FRAMES = PREPROCESSING.maxGapFrames + 1;
 
 function normalizedFrames(frames: readonly ViewerFrame[]): ViewerPitch['normalized'] {
   const inside = frames.filter((fr) => fr.p !== null);
@@ -142,9 +150,11 @@ function normalizedFrames(frames: readonly ViewerFrame[]): ViewerPitch['normaliz
     const xp = valid.map((fr) => fr.p as number);
     const xs = valid.map((fr) => fr.k[name][0]);
     const ys = valid.map((fr) => fr.k[name][1]);
+    // Python 版は長い欠損もまたいで直線でつなぐが、観測していない動きを描かないよう切る（意図的な違い）
+    const broken = valid.slice(1).map((fr, j) => fr.f - valid[j].f > LONG_GAP_FRAMES);
     resampled[name] = grid.map((g) => {
-      const x = interp(g, xp, xs);
-      const y = interp(g, xp, ys);
+      const x = interp(g, xp, xs, broken);
+      const y = interp(g, xp, ys, broken);
       return Number.isFinite(x) && Number.isFinite(y) ? [round(x, 4), round(y, 4)] : null;
     });
   });

@@ -1,4 +1,4 @@
-import type { SyncMode, VectorMode } from './viewerMath';
+import { jointLabel, type SyncMode, type VectorMode } from './viewerMath';
 
 export interface Settings {
   readonly sync: SyncMode;
@@ -62,7 +62,7 @@ export function ViewerSettings({ settings, onChange, joints, progressAvailable }
           <option value="__all__">全身</option>
           {joints.map((j) => (
             <option key={j} value={j}>
-              {j}
+              {jointLabel(j)}
             </option>
           ))}
         </select>

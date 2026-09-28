@@ -25,6 +25,15 @@ describe('EventMarker', () => {
     expect(screen.getByText(/リリースは足接地より後/)).toBeInTheDocument();
   });
 
+  it('縮小画像が間引かれていても、1コマずつ送れる', async () => {
+    const f = loadFixture('no_events');
+    const thumbs = Array.from({ length: 20 }, () => ({ width: 10, height: 10, close: () => undefined }) as unknown as ImageBitmap);
+    render(<EventMarker input={{ json: f.input, thumbnails: thumbs, thumbStride: 2, config }} onChange={() => undefined} />);
+    const first = f.input.frames[0].frame_index;
+    await userEvent.click(screen.getByRole('button', { name: '次のコマ' }));
+    expect(screen.getByText(`コマ ${first + 1}`)).toBeInTheDocument();
+  });
+
   it('投げ腕と打者の向きを切り替えられる', async () => {
     const f = loadFixture('no_events');
     const onChange = vi.fn();

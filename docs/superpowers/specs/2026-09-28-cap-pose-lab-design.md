@@ -182,6 +182,7 @@ cap-pose-lab/
 - `tools/make_fixtures.py` が Python 版を実行して、入力と期待値を `src/**/__fixtures__/*.json` に書き出す
 - TS 側のテストで、同じ入力から同じ値（許容誤差内）が出ることを確かめる
 - 移植元のテスト（`pitching/tests` の206件、`shared/tests/test_trajectory_fitter.py` の27件）のうち、ロジック部分は TS 側にも対応するテストを作る
+- 意図的に Python 版と変えた点: ビューアの「進行率」でコマを並べ直すとき、補間しない長さの欠損（4コマ以上）をまたいで直線でつながない（観測していない動きを描かないため）。Python 版は同じ場面で直線補間する
 
 ## 9. キャップ検出（試験的）
 

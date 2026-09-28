@@ -9,13 +9,15 @@ import { EventMarker } from './EventMarker';
 interface Props {
   readonly inputs: readonly CompareInput[];
   readonly onExit: () => void;
+  /** 戻るボタンの名前（解析結果から来たときは「解析結果に戻る」） */
+  readonly exitLabel?: string;
 }
 
 const primary = 'w-full min-h-11 rounded-xl bg-cyan-600 font-bold text-white';
 const secondary = 'w-full min-h-11 rounded-xl border border-current/40';
 
 /** 足接地・リリースの指定 → 比較ビューア */
-export function CompareFlow({ inputs, onExit }: Props) {
+export function CompareFlow({ inputs, onExit, exitLabel = '最初に戻る' }: Props) {
   const [configs, setConfigs] = useState<PitchConfig[]>(() => inputs.map((i) => i.config));
   const [payload, setPayload] = useState<ViewerPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +40,7 @@ export function CompareFlow({ inputs, onExit }: Props) {
             指定をやり直す
           </button>
           <button type="button" className={secondary} onClick={onExit}>
-            最初に戻る
+            {exitLabel}
           </button>
         </div>
         <ComparisonViewer payload={payload} />
@@ -68,7 +70,7 @@ export function CompareFlow({ inputs, onExit }: Props) {
         比べる
       </button>
       <button type="button" className={secondary} onClick={onExit}>
-        最初に戻る
+        {exitLabel}
       </button>
     </section>
   );
