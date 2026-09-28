@@ -1,0 +1,4 @@
+ultralytics==8.4.53
+onnx
+onnxslim
+onnxruntime

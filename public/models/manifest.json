@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "pose": [
+    {
+      "id": "detailed",
+      "label": "くわしい",
+      "description": "いちばん正確。時間とダウンロード量がいちばん多い",
+      "weights": "yolo26m-pose.pt",
+      "file": "yolo26m-pose.fp32.onnx",
+      "imgsz": 960,
+      "sizeMB": 84,
+      "output": "yolo26-end2end"
+    },
+    {
+      "id": "fast",
+      "label": "はやい",
+      "description": "すぐ終わる。細かい角度は少しずれることがある",
+      "weights": "yolo26n-pose.pt",
+      "file": "yolo26n-pose.fp32.onnx",
+      "imgsz": 960,
+      "sizeMB": 12.5,
+      "output": "yolo26-end2end"
+    },
+    {
+      "id": "standard",
+      "label": "ふつう",
+      "description": "速さと正確さのバランスがよい",
+      "weights": "yolo26s-pose.pt",
+      "file": "yolo26s-pose.fp32.onnx",
+      "imgsz": 960,
+      "sizeMB": 41,
+      "output": "yolo26-end2end"
+    }
+  ]
+}

@@ -1,0 +1,64 @@
+name: pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: モデルのキャッシュ
+        id: models
+        uses: actions/cache@v4
+        with:
+          path: public/models/*.onnx
+          key: models-${{ hashFiles('public/models/manifest.json', 'tools/export_models.py', 'tools/requirements.txt') }}
+
+      - uses: actions/setup-python@v5
+        if: steps.models.outputs.cache-hit != 'true'
+        with:
+          python-version: '3.12'
+
+      - name: ONNX を書き出す
+        if: steps.models.outputs.cache-hit != 'true'
+        run: |
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -r tools/requirements.txt
+          python tools/export_models.py
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:coverage
+      - run: pnpm build
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
