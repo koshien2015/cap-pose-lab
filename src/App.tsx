@@ -102,7 +102,9 @@ export function App() {
       const bytes = await fetchModel(
         modelUrl(model),
         cache,
-        (got, total) => setProgress({ label: 'モデルをダウンロード中', done: got, total, eta: '' }),
+        // 圧縮配信では全体の大きさが分からないので、manifest のサイズを目安にする
+        (got, total) =>
+          setProgress({ label: 'モデルをダウンロード中', done: got, total: total || model.sizeMB * 1024 * 1024, eta: '' }),
         fetch,
         controller.signal,
       );

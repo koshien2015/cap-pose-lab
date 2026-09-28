@@ -6,7 +6,7 @@ export interface ProgressState {
 }
 
 export function RunProgress({ state, onCancel }: { readonly state: ProgressState; readonly onCancel: () => void }) {
-  const percent = state.total > 0 ? Math.round((state.done / state.total) * 100) : 0;
+  const percent = state.total > 0 ? Math.min(100, Math.round((state.done / state.total) * 100)) : 0;
   return (
     <section className="space-y-3" aria-live="polite">
       <p className="font-bold">{state.label}</p>
