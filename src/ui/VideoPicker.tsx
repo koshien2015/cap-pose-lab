@@ -1,10 +1,4 @@
-import type { DemuxedVideo } from '../inference/videoSource';
-
-export interface PickedVideo {
-  readonly file: File;
-  readonly video: DemuxedVideo | null;
-  readonly problem: string | null;
-}
+import type { PickedVideo } from '../flow/pickVideos';
 
 interface Props {
   readonly picked: readonly PickedVideo[];

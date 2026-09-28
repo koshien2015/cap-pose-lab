@@ -98,6 +98,19 @@ describe('fetchModel', () => {
     );
   });
 
+  it('配信側が圧縮していても（Content-Length が圧縮後の大きさでも）読める', async () => {
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array([1, 2, 3, 4]));
+        controller.close();
+      },
+    });
+    const res = new Response(body, { headers: { 'content-length': '2', 'content-encoding': 'gzip' } });
+    const fetchImpl = vi.fn(async () => res);
+    const bytes = await fetchModel('/m.onnx', null, () => undefined, fetchImpl as unknown as typeof fetch);
+    expect(Array.from(bytes)).toEqual([1, 2, 3, 4]);
+  });
+
   it('Content-Length が無くても読める（進捗の合計は 0）', async () => {
     const progress = vi.fn();
     const fetchImpl = vi.fn(async () => streamResponse([new Uint8Array([5, 6])], null));

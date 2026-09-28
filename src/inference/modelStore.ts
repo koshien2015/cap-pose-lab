@@ -40,7 +40,9 @@ export async function isModelCached(url: string, cache: CacheLike | null): Promi
 
 /** 大きさが分かっているときは最初に確保して直接書き込む（受信中にモデル2つ分のメモリを使わないため） */
 async function readAll(res: Response, onProgress: (received: number, total: number) => void): Promise<Uint8Array<ArrayBuffer>> {
-  const total = Number(res.headers.get('content-length')) || 0;
+  // 圧縮して配信されると Content-Length は圧縮後の大きさになり、届く本文（展開後）と合わない
+  const encoded = res.headers.get('content-encoding') !== null;
+  const total = encoded ? 0 : Number(res.headers.get('content-length')) || 0;
   if (!res.body) {
     const bytes = new Uint8Array(await res.arrayBuffer());
     onProgress(bytes.byteLength, total);

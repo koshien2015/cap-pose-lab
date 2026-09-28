@@ -37,7 +37,7 @@ export default defineConfig({
     include: ['src/**/*.test.{ts,tsx}'],
     coverage: {
       provider: 'v8',
-      include: ['src/inference/**/*.ts', 'src/tracking/**/*.ts', 'src/export/**/*.ts', 'src/content/**/*.ts'],
+      include: ['src/inference/**/*.ts', 'src/tracking/**/*.ts', 'src/export/**/*.ts', 'src/content/**/*.ts', 'src/flow/**/*.ts'],
       // ブラウザ API に直結する層は E2E（計画4）で見る
       exclude: [
         'src/inference/videoSource.ts',

@@ -8,11 +8,12 @@ import { estimateSeconds } from './inference/estimate';
 import { formatDuration } from './inference/eta';
 import { loadManifest, type Manifest, type ModeId, modelUrl } from './inference/manifest';
 import { fetchModel, isModelCached, openModelCache, ORT_RUNTIME_MB } from './inference/modelStore';
+import { analyzeAll, createSessionWithFallback } from './flow/runAnalysis';
+import { isDecoderSupported, loadPickedVideos, type PickedVideo } from './flow/pickVideos';
 import { createSession, isOrtRuntimeLoaded } from './inference/ortSession';
 import { recommend } from './inference/recommend';
 import { analyzeVideo, type PoseRun } from './inference/runPose';
 import { loadMeasuredSpeed, saveMeasuredSpeed } from './inference/speedStore';
-import { checkVideoLimits } from './inference/videoLimits';
 import { demuxVideo } from './inference/videoSource';
 import { findInitialPitcher, trackPitcher } from './tracking/pitcherTracking';
 import { DownloadConsent, type DownloadItem } from './ui/DownloadConsent';
@@ -23,7 +24,7 @@ import { ModePicker } from './ui/ModePicker';
 import { PitcherConfirm } from './ui/PitcherConfirm';
 import { type ProgressState, RunProgress } from './ui/RunProgress';
 import { StartScreen } from './ui/StartScreen';
-import { type PickedVideo, VideoPicker } from './ui/VideoPicker';
+import { VideoPicker } from './ui/VideoPicker';
 import { useWakeLock } from './ui/useWakeLock';
 
 type Step = 'start' | 'setup' | 'consent' | 'running' | 'result';
@@ -62,18 +63,8 @@ export function App() {
 
   const onPick = useCallback(async (files: File[]) => {
     setError(null);
-    const loaded = await Promise.all(
-      files.map(async (file): Promise<PickedVideo> => {
-        try {
-          const video = await demuxVideo(file);
-          const limit = checkVideoLimits(video.info);
-          return { file, video, problem: limit.ok ? null : limit.message };
-        } catch (e) {
-          return { file, video: null, problem: friendlyError(e).title };
-        }
-      }),
-    );
-    setPicked(loaded);
+    setPicked([]); // 前の動画を先に手放してから読み込む
+    setPicked(await loadPickedVideos(files, demuxVideo, isDecoderSupported));
   }, []);
 
   const ready = picked.filter((p) => p.video && !p.problem);
@@ -116,19 +107,20 @@ export function App() {
         controller.signal,
       );
       setProgress({ label: '解析の準備中', done: 0, total: 1, eta: '' });
-      const { session } = await createSession(bytes, ep);
+      const prepared = await createSessionWithFallback(bytes, ep, createSession);
+      const { session } = prepared.loaded;
+      const note = prepared.fellBack ? '（高速モードが使えなかったため、時間がかかります）' : '';
       try {
-        const done: Tracked[] = [];
-        for (const [i, p] of ready.entries()) {
-          if (!p.video) continue;
-          const r = await analyzeVideo(p.video, p.file.name, session, model.imgsz, {
+        const runs = await analyzeAll(ready, async (p, i) => {
+          const r = await analyzeVideo(p.video as NonNullable<PickedVideo['video']>, p.file.name, session, model.imgsz, {
             signal: controller.signal,
             onProgress: (d, t, eta) =>
-              setProgress({ label: `解析中（${i + 1}/${ready.length}本目）`, done: d, total: t, eta: formatDuration(eta) }),
+              setProgress({ label: `解析中（${i + 1}/${ready.length}本目）${note}`, done: d, total: t, eta: formatDuration(eta) }),
           });
-          saveMeasuredSpeed(mode, ep, r.msPerFrame);
-          done.push(autoTrack(r));
-        }
+          saveMeasuredSpeed(mode, prepared.ep, r.msPerFrame);
+          return r;
+        });
+        const done = runs.map(autoTrack);
         setResults((prev) => {
           prev.forEach((t) => t.run.thumbnails.forEach((b) => b.close())); // 前回分の縮小画像を解放する
           return done;
@@ -155,6 +147,11 @@ export function App() {
         <section role="alert" className="space-y-1 rounded-xl border-2 border-red-500 p-3 text-sm">
           <p className="font-bold">{error.title}</p>
           <p>{error.action}</p>
+          {error.retryable && model && ready.length > 0 && (
+            <button type="button" onClick={run} className="w-full min-h-11 rounded-xl bg-cyan-600 font-bold text-white">
+              もう一度試す
+            </button>
+          )}
           <details>
             <summary className="min-h-11 cursor-pointer py-2">詳しい情報</summary>
             <pre className="whitespace-pre-wrap break-all text-xs">{error.detail}</pre>

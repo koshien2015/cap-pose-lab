@@ -58,7 +58,8 @@ export async function demuxVideo(file: File): Promise<DemuxedVideo> {
   const buffer = await file.arrayBuffer();
   return new Promise((resolve, reject) => {
     const mp4 = createFile();
-    const samples: Sample[] = [];
+    // サンプルは受け取ったその場でチャンクにし、mp4box 側のデータは解放する（ピークのメモリを減らすため）
+    const chunks: EncodedVideoChunk[] = [];
     let trackId = -1;
     mp4.onError = (module, message) => reject(new Error(`動画の解析に失敗しました（${module}）: ${message}`));
     mp4.onReady = (movie) => {
@@ -71,8 +72,10 @@ export async function demuxVideo(file: File): Promise<DemuxedVideo> {
       mp4.setExtractionOptions(track.id, undefined, { nbSamples: Infinity });
       mp4.start();
     };
-    mp4.onSamples = (_id, _user, batch) => {
-      samples.push(...batch);
+    mp4.onSamples = (id, _user, batch) => {
+      batch.forEach((sample) => chunks.push(toChunk(sample)));
+      const last = batch[batch.length - 1];
+      if (last) mp4.releaseUsedSamples(id, last.number + 1);
     };
     mp4.appendBuffer(MP4BoxBuffer.fromArrayBuffer(buffer, 0));
     mp4.flush();
@@ -96,7 +99,7 @@ export async function demuxVideo(file: File): Promise<DemuxedVideo> {
         codedHeight: movieTrack.video?.height ?? 0,
         rotation: rotationFromMatrix(movieTrack.matrix),
         fps: durationSec > 0 ? movieTrack.nb_samples / durationSec : 0,
-        frameCount: samples.length,
+        frameCount: chunks.length,
         durationSec,
         fileSizeMB: file.size / (1024 * 1024),
       },
@@ -106,7 +109,7 @@ export async function demuxVideo(file: File): Promise<DemuxedVideo> {
         codedHeight: movieTrack.video?.height,
         description: codecDescription(entries),
       },
-      chunks: samples.map(toChunk),
+      chunks,
     });
   });
 }
