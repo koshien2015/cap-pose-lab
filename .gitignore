@@ -10,3 +10,6 @@ coverage/
 *.onnx
 public/models/*.onnx
 public/ort/
+
+# 作業記録（ローカルパスや手元の動画名を含む。公開しない）
+.superpowers/
