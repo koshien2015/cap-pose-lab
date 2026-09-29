@@ -1,13 +1,6 @@
 import type { SummaryItem, ViewerPayload } from '../analysis/payload';
 import { COLORS } from './draw';
-import { diffText } from './viewerMath';
-
-/** 値と単位（出せなければ「—」） */
-export function formatSummaryValue(item: SummaryItem): string {
-  if (item.value === null) return '—';
-  const number = item.value.toFixed(item.digits);
-  return `${item.signed && item.value > 0 ? '+' : ''}${number}${item.unit}`;
-}
+import { diffText, formatSummaryValue } from './viewerMath';
 
 function Cell({ item }: { readonly item: SummaryItem | null }) {
   if (!item) return <>—</>;

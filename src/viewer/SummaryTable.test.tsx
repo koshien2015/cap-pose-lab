@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest';
 
 import pair from '../analysis/__fixtures__/pair.json';
 import type { SummaryItem, ViewerPayload } from '../analysis/payload';
-import { formatSummaryValue, SummaryTable } from './SummaryTable';
+import { SummaryTable } from './SummaryTable';
+import { formatSummaryValue } from './viewerMath';
 
 const base = pair.payload as unknown as ViewerPayload;
 const lag = (value: number | null, reason: string | null = null): SummaryItem => ({

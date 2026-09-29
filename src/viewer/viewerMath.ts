@@ -5,7 +5,7 @@
  * 座標は「身体サイズを1」とした値で、X は打者方向が正、Y は上が正。
  */
 
-import type { ViewerFrame, ViewerPayload, ViewerPitch, XY } from '../analysis/payload';
+import type { SummaryItem, ViewerFrame, ViewerPayload, ViewerPitch, XY } from '../analysis/payload';
 
 export type SyncMode = 'progress' | 'release' | 'frame';
 export type VectorMode = 'none' | 'velocity' | 'accel';
@@ -231,4 +231,11 @@ export function diffText(values: readonly (number | null)[], format: (v: number)
   if (values.length < 2 || values[0] === null || values[1] === null) return '';
   const difference = values[0] - values[1];
   return (difference > 0 ? '+' : '') + format(difference);
+}
+
+/** まとめの値と単位（出せなければ「—」） */
+export function formatSummaryValue(item: SummaryItem): string {
+  if (item.value === null) return '—';
+  const number = item.value.toFixed(item.digits);
+  return `${item.signed && item.value > 0 ? '+' : ''}${number}${item.unit}`;
 }
