@@ -43,6 +43,15 @@ describe('toPoseJson', () => {
     expect(other.frames[1].timestamp_sec).toBeCloseTo(1 / 30, 6);
   });
 
+  it('投手か打者かを meta.subject に書く（省略時は投手）', () => {
+    expect(json.meta.subject).toBe('pitcher');
+    const batter = toPoseJson(run, [person(1)], { modelLabel: 'm', selection: 'auto', subject: 'batter' });
+    expect(batter.meta.subject).toBe('batter');
+    expect(batter.meta.notes.join()).toContain('打者は最も大きい人物');
+    const tapped = toPoseJson(run, [person(1)], { modelLabel: 'm', selection: 'tap', subject: 'batter' });
+    expect(tapped.meta.notes.join()).toContain('打者は画面のタップ');
+  });
+
   it('投手の選び方をメモに残す（自動選択は確認を促す）', () => {
     expect(json.meta.notes.join()).toContain('最も大きい人物');
     const tapped = toPoseJson(run, [person(1)], { modelLabel: 'm', selection: 'tap' });

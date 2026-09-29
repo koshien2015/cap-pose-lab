@@ -40,6 +40,22 @@ describe('parsePoseFile', () => {
     const f = loadFixture('clean_right');
     expect(parsePoseFile(JSON.stringify(f.input)).frames.length).toBe(f.input.frames.length);
   });
+  it('印の無い古いファイルは、投手・打者どちらでも読める', () => {
+    const text = JSON.stringify(loadFixture('clean_right').input);
+    expect(() => parsePoseFile(text, 'pitcher')).not.toThrow();
+    expect(() => parsePoseFile(text, 'batter')).not.toThrow();
+  });
+
+  it('投手と打者を取り違えたファイルは読み込まない', () => {
+    const input = loadFixture('clean_right').input;
+    const pitcher = JSON.stringify({ ...input, meta: { ...input.meta, subject: 'pitcher' } });
+    const batter = JSON.stringify({ ...input, meta: { ...input.meta, subject: 'batter' } });
+    expect(() => parsePoseFile(pitcher, 'batter')).toThrow('投手の解析結果です');
+    expect(() => parsePoseFile(batter, 'pitcher')).toThrow('打者の解析結果です');
+    expect(parsePoseFile(batter, 'batter').meta.subject).toBe('batter');
+    expect(() => parsePoseFile(batter)).not.toThrow();
+  });
+
   it('形式が違うファイルは、やさしい文言で断る', () => {
     expect(() => parsePoseFile('{"hello":1}')).toThrow('解析結果のファイルではありません');
     expect(() => parsePoseFile('not json')).toThrow('解析結果のファイルではありません');
