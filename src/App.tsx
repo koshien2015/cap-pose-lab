@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import type { Subject } from './analysis/types';
+import type { SwingConfig } from './batting/analyzeSwing';
 import { friendlyError, type FriendlyError } from './content/errors';
 import { poseJsonFileName, toPoseJson } from './export/poseJson';
 import { type CapabilityReport, detectCapabilities } from './inference/capabilities';
@@ -10,6 +12,7 @@ import { loadManifest, type Manifest, type ModeId, modelUrl } from './inference/
 import { fetchModel, isModelCached, openModelCache, ORT_RUNTIME_MB } from './inference/modelStore';
 import type { CompareInput } from './flow/compare';
 import { analyzeAll, createSessionWithFallback } from './flow/runAnalysis';
+import type { SwingCompareInput } from './flow/swingCompare';
 import { isDecoderSupported, loadPickedVideos, type PickedVideo } from './flow/pickVideos';
 import { createSession, isOrtRuntimeLoaded } from './inference/ortSession';
 import { recommend } from './inference/recommend';
@@ -28,6 +31,7 @@ import { PitcherConfirm } from './ui/PitcherConfirm';
 import { PoseFileLoader } from './ui/PoseFileLoader';
 import { type ProgressState, RunProgress } from './ui/RunProgress';
 import { StartScreen } from './ui/StartScreen';
+import { SwingCompareFlow } from './ui/SwingCompareFlow';
 import { TrajectoryFlow } from './trajectory/TrajectoryFlow';
 import { VideoPicker } from './ui/VideoPicker';
 import { useWakeLock } from './ui/useWakeLock';
@@ -47,6 +51,11 @@ function defaultConfig(pitchId: string, fps: number): CompareInput['config'] {
   return { pitchId, label: '', throwingHand: 'right', batterDirection: 'left', fps, footContactFrame: null, releaseFrame: null };
 }
 
+/** 打者の比較の初期設定。打ち方は指定画面で直してもらう */
+function defaultSwingConfig(swingId: string, fps: number): SwingConfig {
+  return { swingId, label: '', bats: 'right', fps, topFrame: null, impactFrame: null };
+}
+
 function autoTrack(run: PoseRun): Tracked {
   const anchor = findInitialPitcher(run.frames);
   return { run, track: anchor ? trackPitcher(run.frames, anchor) : run.frames.map(() => null), selection: 'auto' };
@@ -63,6 +72,8 @@ export function App() {
   const [results, setResults] = useState<Tracked[]>([]);
   const [error, setError] = useState<FriendlyError | null>(null);
   const [compareInputs, setCompareInputs] = useState<CompareInput[]>([]);
+  const [subject, setSubject] = useState<Subject>('pitcher');
+  const [swingInputs, setSwingInputs] = useState<SwingCompareInput[]>([]);
   // 比較から戻る先（解析から来たときは、保存前の結果を失わないよう結果画面に戻す）
   const [compareFrom, setCompareFrom] = useState<'result' | 'start'>('start');
   const abortRef = useRef<AbortController | null>(null);
@@ -153,19 +164,46 @@ export function App() {
   }, [model, ep, mode, ready]);
 
   const modelLabel = `${model?.weights}@${model?.imgsz}`;
-  const startCompareFromResults = () => {
-    setCompareInputs(
+  const poseJsonOf = (t: Tracked) => toPoseJson(t.run, t.track, { modelLabel, selection: t.selection, subject });
+
+  /** 比較の入力を、モードに合わせて作る（打者はトップ・インパクト、投手は足接地・リリースを指定する） */
+  const openCompare = (
+    items: readonly {
+      json: CompareInput['json'];
+      thumbnails: readonly ImageBitmap[] | null;
+      thumbStride: number;
+      size?: CompareInput['size'];
+      id: string;
+      fps: number;
+    }[],
+    from: 'result' | 'start',
+  ) => {
+    if (subject === 'batter') {
+      setSwingInputs(items.map(({ id, fps, ...rest }) => ({ ...rest, config: defaultSwingConfig(id, fps) })));
+    } else {
+      setCompareInputs(items.map(({ id, fps, ...rest }) => ({ ...rest, config: defaultConfig(id, fps) })));
+    }
+    setCompareFrom(from);
+    setStep('compare');
+  };
+
+  const startCompareFromResults = () =>
+    openCompare(
       results.map((t) => ({
         // 保存した pose.json と同じ経路にし、読み込み時と実行時で結果がずれないようにする
-        json: toPoseJson(t.run, t.track, { modelLabel, selection: t.selection }),
+        json: poseJsonOf(t),
         thumbnails: t.run.thumbnails,
         thumbStride: t.run.thumbStride,
         size: { width: t.run.width, height: t.run.height },
-        config: defaultConfig(stem(t.run.fileName), t.run.fps),
+        id: stem(t.run.fileName),
+        fps: t.run.fps,
       })),
+      'result',
     );
-    setCompareFrom('result');
-    setStep('compare');
+
+  const begin = (next: Subject, to: 'setup' | 'load') => {
+    setSubject(next);
+    setStep(to);
   };
 
   const repick = (i: number, frame: number, index: number) =>
@@ -177,35 +215,51 @@ export function App() {
     <main className="mx-auto max-w-xl space-y-6 px-4 py-6">
       <h1 className="text-xl font-bold">投球フォーム解析</h1>
       {error && <ErrorPanel error={error} onRetry={error.retryable && model && ready.length > 0 ? run : undefined} />}
-      {step === 'start' && <StartScreen onStart={() => setStep('setup')} onLoadSaved={() => setStep('load')} onTrajectory={() => setStep('trajectory')} />}
+      {step === 'start' && (
+        <StartScreen
+          onStart={() => begin('pitcher', 'setup')}
+          onLoadSaved={() => begin('pitcher', 'load')}
+          onBatter={() => begin('batter', 'setup')}
+          onLoadSavedBatter={() => begin('batter', 'load')}
+          onTrajectory={() => setStep('trajectory')}
+        />
+      )}
       {step === 'load' && (
         <>
           <PoseFileLoader
-            onLoad={(files) => {
-              setCompareInputs(
+            subject={subject}
+            onLoad={(files) =>
+              openCompare(
                 files.map((f) => ({
                   json: f.json,
                   thumbnails: null,
                   thumbStride: 1,
-                  config: defaultConfig(f.json.meta.pitch_id || stem(f.name), f.json.meta.fps),
+                  id: f.json.meta.pitch_id || stem(f.name),
+                  fps: f.json.meta.fps,
                 })),
-              );
-              setCompareFrom('start');
-              setStep('compare');
-            }}
+                'start',
+              )
+            }
           />
           <button type="button" onClick={() => setStep('start')} className="w-full min-h-11 rounded-xl border border-current/40">
             戻る
           </button>
         </>
       )}
-      {step === 'compare' && (
-        <CompareFlow
-          inputs={compareInputs}
-          exitLabel={compareFrom === 'result' ? '解析結果に戻る' : '最初に戻る'}
-          onExit={() => setStep(compareFrom)}
-        />
-      )}
+      {step === 'compare' &&
+        (subject === 'batter' ? (
+          <SwingCompareFlow
+            inputs={swingInputs}
+            exitLabel={compareFrom === 'result' ? '解析結果に戻る' : '最初に戻る'}
+            onExit={() => setStep(compareFrom)}
+          />
+        ) : (
+          <CompareFlow
+            inputs={compareInputs}
+            exitLabel={compareFrom === 'result' ? '解析結果に戻る' : '最初に戻る'}
+            onExit={() => setStep(compareFrom)}
+          />
+        ))}
       {step === 'trajectory' && <TrajectoryFlow report={report} rec={rec} manifest={manifest} onExit={() => setStep('start')} />}
       {step === 'setup' && (
         <>
@@ -236,16 +290,22 @@ export function App() {
       {step === 'result' && (
         <>
           {results.map((t, i) => (
-            <PitcherConfirm key={t.run.fileName} run={t.run} track={t.track} onPick={(f, idx) => repick(i, f, idx)} />
+            <PitcherConfirm
+              key={t.run.fileName}
+              run={t.run}
+              track={t.track}
+              who={subject === 'batter' ? '打者' : '投手'}
+              onPick={(f, idx) => repick(i, f, idx)}
+            />
           ))}
           <button type="button" onClick={startCompareFromResults} className="w-full min-h-11 rounded-xl bg-cyan-600 font-bold text-white">
-            フォームを比べる（足接地とリリースを指定）
+            {subject === 'batter' ? 'スイングを比べる（トップとインパクトを指定）' : 'フォームを比べる（足接地とリリースを指定）'}
           </button>
           <ExportPanel
             items={results.map((t) => ({
               fileName: poseJsonFileName(t.run.fileName),
               onSave: () =>
-                downloadJson(poseJsonFileName(t.run.fileName), toPoseJson(t.run, t.track, { modelLabel, selection: t.selection })),
+                downloadJson(poseJsonFileName(t.run.fileName), poseJsonOf(t)),
             }))}
           />
         </>
