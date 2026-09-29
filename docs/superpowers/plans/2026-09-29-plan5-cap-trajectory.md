@@ -329,6 +329,8 @@ Expected: `fp16 check: shape (1, 15, 5040), box diff …, score diff …` と `e
 
 - 形が `(1, 15, N)` でない（例: `(1, 300, 6)`）なら、書き出しに NMS が埋め込まれている。`export(..., nms=False)` を足して書き出し直す
 - fp16 のファイルが fp32 と同じ大きさなら変換されていない。止めて報告する
+- 依存の解決に失敗する、または `onnxconverter-common` のせいで protobuf / onnx が古い版に下げられる場合は、`onnxconverter-common` を requirements から外し、`from onnxconverter_common import float16` を `from onnxruntime.transformers.float16 import convert_float_to_float16` に替える（onnxruntime に同梱。`keep_io_types=True` は同じ）
+- `check_detector` が「大きくずれています」で止まったら、ノイズ画像の意味のない低スコアのアンカーが効いている可能性がある。fp32 のスコアが 0.1 を超えるアンカーだけで差を見直し、それでも閾値を超えるなら止めて報告する（超えなければ判定をそのアンカーに絞る形に直す）
 
 - [ ] **Step 8: manifest の sizeMB を実測値にする**
 
@@ -391,9 +393,12 @@ Run: `pnpm dev` を起動し、Mac Chrome で次の3つを開いて「キャッ�
 
 判断:
 - 1 が「失敗」（高速処理で fp16 のセッションを作れない）、または 1 が 2 の 1.5 倍より遅い → **ここで止めてユーザーに報告する。** 設計書 §5.2 の fp16 配信を見直す必要がある（fp32 を配信するには Pages の1ファイルの上限の確認が要る）
+- 3 が「失敗」、または実用にならない遅さ（`expectedInferences(1200) = 274` 回 × 推論1回の時間が 10 分を超える）→ **ここで止めてユーザーに報告する。** CPU 処理は fp16 の演算に対応していないものがあり、WebGPU の無い端末（設計書 §9.3 で「動かす」とした）が使えなくなるため
 - それ以外 → 1 と 3 の数字を控えて先へ進む（Task 9 の見積もりの基準値に使う）
 
 控えた数字は `.superpowers/sdd/` の作業記録に書く（git には入れない）。
+
+このステップは実際のブラウザ（WebGPU）が要るので、サブエージェントには任せない。実行の親（または Chrome 操作ツール）が行う。
 
 - [ ] **Step 11: テストとビルドを通してコミットする**
 
