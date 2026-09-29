@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { FULL_GATE } from '../capDetect/gate';
 import { estimateDetectSeconds, estimateSeconds } from './estimate';
 
 describe('estimateSeconds', () => {
@@ -44,5 +45,11 @@ describe('estimateDetectSeconds', () => {
   it('実測値が使えない値なら基準値に戻る', () => {
     const base = estimateDetectSeconds(100, 'wasm', { isMobile: false });
     expect(estimateDetectSeconds(100, 'wasm', { isMobile: false, measuredMsPerInference: Number.NaN })).toBe(base);
+  });
+});
+
+describe('estimateDetectSeconds（全コマ推論）', () => {
+  it('全コマのモードでは、動画のコマ数ぶん推論する見込みで見積もる', () => {
+    expect(estimateDetectSeconds(600, 'webgpu', { isMobile: false, measuredMsPerInference: 100, gate: FULL_GATE })).toBeCloseTo(60, 6);
   });
 });

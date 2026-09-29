@@ -4,7 +4,7 @@ import { friendlyError } from '../content/errors';
 import type { DetectRun } from '../inference/runDetect';
 import { assertDecoded } from './runTrajectory';
 
-const run: DetectRun = { fileName: 'clip.mp4', fps: 60, width: 1920, height: 1080, frameCount: 10, records: [], images: [], msPerInference: 40 };
+const run: DetectRun = { fileName: 'clip.mp4', fps: 60, width: 1920, height: 1080, frameCount: 10, records: [], images: [], msPerInference: 40, inference: 'sampled' };
 
 describe('assertDecoded', () => {
   it('コマを読めていればそのまま返す', () => {

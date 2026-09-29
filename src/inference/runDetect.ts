@@ -8,6 +8,7 @@ import type { InferenceSession } from 'onnxruntime-web';
 
 import { decodeOutput } from '../capDetect/decodeDetect';
 import { type FrameImage, type LoopFrame, type RgbaInput, runDetectLoop, withEnhancement } from '../capDetect/detectLoop';
+import { gateFor, type InferenceMode } from '../capDetect/gate';
 import { classIds, type FrameRecord, toFrameRecord } from '../capDetect/records';
 import { estimateRemainingMs } from './eta';
 import { displaySize, FramePreprocessor, makeThumbnail } from './frameCanvas';
@@ -26,6 +27,8 @@ export interface DetectRun {
   /** 推論したコマの縮小画像（frame 順） */
   readonly images: readonly FrameImage<ImageBitmap>[];
   readonly msPerInference: number;
+  /** 推論のしかた（間引いたか全コマか） */
+  readonly inference: InferenceMode;
 }
 
 interface DetectInput extends RgbaInput {
@@ -65,7 +68,7 @@ export async function analyzeDetectVideo(
   fileName: string,
   session: InferenceSession,
   detector: CapDetector,
-  opts: { onProgress: (done: number, total: number, etaMs: number | null) => void; signal: AbortSignal },
+  opts: { onProgress: (done: number, total: number, etaMs: number | null) => void; signal: AbortSignal; inference: InferenceMode },
 ): Promise<DetectRun> {
   const { frameCount, fps, rotation } = video.info;
   const ids = classIds(detector.classes);
@@ -86,6 +89,10 @@ export async function analyzeDetectVideo(
     inferCount += 1;
     return toFrameRecord(frame, decodeOutput(output, detector.output, detector.classes.length, input.letterbox), ids);
   };
-  const { records, images } = await runDetectLoop(frames, { detect, disposeImage: close, signal: opts.signal });
-  return { fileName, fps, ...size, frameCount, records, images, msPerInference: inferCount > 0 ? inferMs / inferCount : 0 };
+  const { records, images } = await runDetectLoop(frames, { detect, disposeImage: close, signal: opts.signal, gate: gateFor(opts.inference) });
+  return {
+    fileName, fps, ...size, frameCount, records, images,
+    msPerInference: inferCount > 0 ? inferMs / inferCount : 0,
+    inference: opts.inference,
+  };
 }

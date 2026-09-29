@@ -12,6 +12,14 @@ export interface GateConfig {
 
 export const DEFAULT_GATE: GateConfig = { searchStride: 5, denseFrames: 30, lookback: 4 };
 
+/** 全コマ推論（間引き幅 1）。間引きで飛行中のコマを取りこぼすのが心配なときに使う。時間は約5倍かかる */
+export const FULL_GATE: GateConfig = { ...DEFAULT_GATE, searchStride: 1 };
+
+/** 推論のしかた（sampled: 見つかるまで間引く / all: 全コマ） */
+export type InferenceMode = 'sampled' | 'all';
+
+export const gateFor = (mode: InferenceMode): GateConfig => (mode === 'all' ? FULL_GATE : DEFAULT_GATE);
+
 export interface GateState {
   readonly denseUntil: number;
 }

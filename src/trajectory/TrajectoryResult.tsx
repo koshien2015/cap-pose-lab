@@ -139,7 +139,7 @@ export function TrajectoryResult({ run, model, onExit }: { readonly run: DetectR
       trajectoryJsonFileName(run.fileName),
       toTrajectoryJson({
         fileName: run.fileName, fps: run.fps, width: run.width, height: run.height, frameCount: run.frameCount,
-        model, releaseFrame: release.frame, releaseSource: release.source, records: run.records, analysis,
+        model, inference: run.inference, releaseFrame: release.frame, releaseSource: release.source, records: run.records, analysis,
       }),
     );
 

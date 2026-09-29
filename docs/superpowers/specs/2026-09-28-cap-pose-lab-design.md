@@ -212,7 +212,7 @@ cap-pose-lab/
 | ファイル | 役割 | 移植元 |
 |---|---|---|
 | `decodeDetect.ts` | 出力を解読し、信頼度が 0.15 より大きいものを元の動画の座標に戻す。`yolo26-end2end`（`[1, 300, 6]`）はそのまま、`yolov8-raw`（`[1, 4+クラス数, anchors]`）はクラスごとに NMS にかける | ultralytics の後処理 |
-| `gate.ts` | 推論の間引き。キャップが見つかるまで5コマに1回推論し、見つけたら30コマ連続で推論する。見つけたときは、直前の推論していないコマ（最大4コマ）を遡って推論させる | `prefilter.py` の `InferenceGate` に遡りを追加 |
+| `gate.ts` | 推論の間引き。キャップが見つかるまで5コマに1回推論し、見つけたら30コマ連続で推論する。見つけたときは、直前の推論していないコマ（最大4コマ）を遡って推論させる。画面で「全コマ」を選ぶと間引き幅を1にして全コマ推論する（飛行中を一度も拾えず取りこぼすのを避けたいとき。時間は約5倍） | `prefilter.py` の `InferenceGate` に遡りを追加 |
 | `enhance.ts` | 3コマ差分によるモーション強調（manifest の `preprocess` が `enhanced` のとき） | `tennis.py` |
 | `release.ts` | 投手のクラスが `pitcher_motion` から `pitcher_release` に切り替わったコマをリリース候補にする | `pitching_analysis.py` の `detect_release` |
 | `trajectory.ts` | 時間の2次式フィット・RANSAC・欠損の補間・平均球速 | `trajectory_fitter.py` |
@@ -261,6 +261,7 @@ cap-pose-lab/
   "model": { "weights": "yolo26m-1280px-120epoch.pt", "imgsz": 1280, "preprocess": "raw", "conf": 0.15 },
   "release": { "frame": 123, "source": "auto" },          // source: auto | manual | none
   "detections": [{ "frame": 125, "x": 540.2, "y": 812.7, "conf": 0.42 }],
+  "inference": "sampled",                                  // 推論のしかた（sampled: 見つかるまで間引いた / all: 全コマ）
   "inferredFrames": [[0, 1], [5, 6], [120, 156]],         // 推論したコマの範囲（end は含まない）
   "fit": { "coeffsX": [0, 0, 0], "coeffsY": [0, 0, 0], "rmse": 3.1,
            "inlierFrames": [125, 126], "outlierFrames": [131] },   // フィットできなければ null

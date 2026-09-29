@@ -14,6 +14,7 @@ function input(over: Partial<TrajectoryJsonInput> = {}): TrajectoryJsonInput {
     height: SYNTH_HEIGHT,
     frameCount: 200,
     model: { weights: 'yolo8m_20250510.pt', imgsz: 640, preprocess: 'raw' },
+    inference: 'sampled',
     releaseFrame,
     releaseSource: releaseFrame === null ? 'none' : 'auto',
     records,
@@ -64,5 +65,12 @@ describe('toTrajectoryJson', () => {
 describe('trajectoryJsonFileName', () => {
   it('動画名の拡張子を _trajectory.json に替える', () => {
     expect(trajectoryJsonFileName('IMG_0001.MOV')).toBe('IMG_0001_trajectory.json');
+  });
+});
+
+describe('推論のしかた', () => {
+  it('間引いたか全コマかを JSON に残す', () => {
+    expect(toTrajectoryJson(input()).inference).toBe('sampled');
+    expect(toTrajectoryJson(input({ inference: 'all' })).inference).toBe('all');
   });
 });
