@@ -127,7 +127,8 @@ def nms_case() -> dict:
     scores[0, 5] = 0.15  # 閾値ちょうど（float32 の 0.15）は採らない（「より大きい」）
     scores[2, 6], scores[7, 6] = 0.4, 0.4  # 同点のクラス → 先の番号（2）を採る
     pred[0, 4:] = scores
-    out = non_max_suppression(torch.from_numpy(pred), conf_thres=0.15, iou_thres=0.7, max_det=300)[0].numpy()
+    # NMS は入力をその場で書き換える（xywh → xyxy）。from_numpy はメモリを共有するので、コピーを渡す
+    out = non_max_suppression(torch.from_numpy(pred.copy()), conf_thres=0.15, iou_thres=0.7, max_det=300)[0].numpy()
     return {
         "ultralytics": ultralytics.__version__,
         "num_classes": nc,
