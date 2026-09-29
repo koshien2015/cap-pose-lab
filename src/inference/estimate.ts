@@ -4,7 +4,7 @@
  * 一度解析したら実測値（speedStore）に置き換わる。
  */
 
-import { expectedInferences } from '../capDetect/gate';
+import { DEFAULT_GATE, expectedInferences, type GateConfig } from '../capDetect/gate';
 import type { ModeId } from './manifest';
 import type { ExecutionProvider } from './recommend';
 
@@ -35,12 +35,12 @@ const CAP_DETECT_MS: Record<ExecutionProvider, number> = { webgpu: 146, wasm: 46
 export function estimateDetectSeconds(
   frames: number,
   ep: ExecutionProvider,
-  opts: { isMobile: boolean; measuredMsPerInference?: number },
+  opts: { isMobile: boolean; measuredMsPerInference?: number; gate?: GateConfig },
 ): number {
   const measured = opts.measuredMsPerInference;
   const ms =
     measured !== undefined && Number.isFinite(measured) && measured > 0
       ? measured
       : CAP_DETECT_MS[ep] * (opts.isMobile ? MOBILE_FACTOR : 1);
-  return (expectedInferences(frames) * ms) / 1000;
+  return (expectedInferences(frames, opts.gate ?? DEFAULT_GATE) * ms) / 1000;
 }

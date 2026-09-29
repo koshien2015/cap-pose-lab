@@ -1,3 +1,4 @@
+import type { InferenceMode } from '../capDetect/gate';
 import { createSessionWithFallback } from '../flow/runAnalysis';
 import { formatDuration } from '../inference/eta';
 import { type CapDetector, modelUrl } from '../inference/manifest';
@@ -14,6 +15,7 @@ export interface TrajectoryRunInput {
   readonly fileName: string;
   readonly detector: CapDetector;
   readonly ep: ExecutionProvider;
+  readonly inference: InferenceMode;
   readonly signal: AbortSignal;
   readonly onProgress: (p: ProgressState) => void;
 }
@@ -29,7 +31,7 @@ export function assertDecoded(run: DetectRun): DetectRun {
   return run;
 }
 
-export async function runTrajectory({ video, fileName, detector, ep, signal, onProgress }: TrajectoryRunInput): Promise<DetectRun> {
+export async function runTrajectory({ video, fileName, detector, ep, inference, signal, onProgress }: TrajectoryRunInput): Promise<DetectRun> {
   const bytes = await fetchModel(
     modelUrl(detector),
     await openModelCache(),
@@ -44,6 +46,7 @@ export async function runTrajectory({ video, fileName, detector, ep, signal, onP
   try {
     const run = await analyzeDetectVideo(video, fileName, prepared.loaded.session, detector, {
       signal,
+      inference,
       onProgress: (d, t, eta) => onProgress({ label: `キャップを探しています${note}`, done: d, total: t, eta: formatDuration(eta) }),
     });
     saveMeasuredSpeed('capDetect', prepared.ep, run.msPerInference);

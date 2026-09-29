@@ -18,6 +18,7 @@ import manifestJson from '../../public/models/manifest.json';
 import type { CapabilityReport } from '../inference/capabilities';
 import { parseManifest } from '../inference/manifest';
 import type { Recommendation } from '../inference/recommend';
+import { MAX_DURATION_SEC } from '../inference/videoLimits';
 import { TrajectoryFlow } from './TrajectoryFlow';
 
 const manifest = parseManifest(manifestJson);
@@ -45,6 +46,22 @@ describe('TrajectoryFlow', () => {
     expect(await screen.findByText(/解析の目安: 約/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: '次へ' }));
     expect(await screen.findByText(/キャップ検出モデル（約 \d+ MB）/)).toBeInTheDocument();
+  });
+
+  it('推論のしかたを選べる（既定は間引き）。全コマにすると目安の時間が延びる', async () => {
+    render(<TrajectoryFlow report={report} rec={limited} manifest={manifest} onExit={() => undefined} />);
+    await userEvent.upload(screen.getByLabelText('動画を選ぶ（1本）'), new File(['x'], 'clip.mp4', { type: 'video/mp4' }));
+    const sampled = await screen.findByRole('radio', { name: /はやい/ });
+    expect(sampled).toBeChecked();
+    const before = screen.getByText(/解析の目安: /).textContent;
+    await userEvent.click(screen.getByRole('radio', { name: /全コマ/ }));
+    expect(screen.getByRole('radio', { name: /全コマ/ })).toBeChecked();
+    expect(screen.getByText(/解析の目安: /).textContent).not.toBe(before);
+  });
+
+  it('動画の長さの上限は、共通の上限の値で案内する', () => {
+    render(<TrajectoryFlow report={report} rec={limited} manifest={manifest} onExit={() => undefined} />);
+    expect(screen.getByText(new RegExp(`${MAX_DURATION_SEC}秒以内`))).toBeInTheDocument();
   });
 
   it('「最初に戻る」で抜けられる', async () => {

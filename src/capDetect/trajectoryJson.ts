@@ -5,6 +5,7 @@
 
 import type { ThrowAnalysis } from './analyzeThrow';
 import { DETECT_CONF } from './decodeDetect';
+import type { InferenceMode } from './gate';
 import type { CapPoint, FrameRecord } from './records';
 import type { CompletedPoint } from './trajectory';
 
@@ -17,6 +18,7 @@ export interface TrajectoryJsonInput {
   readonly height: number;
   readonly frameCount: number;
   readonly model: { readonly weights: string; readonly imgsz: number; readonly preprocess: 'raw' | 'enhanced' };
+  readonly inference: InferenceMode;
   readonly releaseFrame: number | null;
   readonly releaseSource: ReleaseSource;
   readonly records: readonly FrameRecord[];
@@ -28,6 +30,8 @@ export interface TrajectoryJson {
   readonly version: 1;
   readonly video: { readonly file: string; readonly fps: number; readonly width: number; readonly height: number; readonly frameCount: number };
   readonly model: { readonly weights: string; readonly imgsz: number; readonly preprocess: 'raw' | 'enhanced'; readonly conf: number };
+  /** 推論のしかた（sampled: 見つかるまで間引いた / all: 全コマ）。推論したコマは inferredFrames */
+  readonly inference: InferenceMode;
   readonly release: { readonly frame: number | null; readonly source: ReleaseSource };
   readonly detections: readonly CapPoint[];
   readonly inferredFrames: readonly (readonly [number, number])[];
@@ -61,6 +65,7 @@ export function toTrajectoryJson(input: TrajectoryJsonInput): TrajectoryJson {
     video: { file: input.fileName, fps: input.fps, width: input.width, height: input.height, frameCount: input.frameCount },
     // manifest の項目をそのまま広げない（書き出すのはこの4つだけ）
     model: { weights: input.model.weights, imgsz: input.model.imgsz, preprocess: input.model.preprocess, conf: DETECT_CONF },
+    inference: input.inference,
     release: { frame: input.releaseFrame, source: input.releaseFrame === null ? 'none' : input.releaseSource },
     detections: a.detections.map((d) => ({ frame: d.frame, x: round(d.x, 2), y: round(d.y, 2), conf: round(d.conf, 3) })),
     inferredFrames: inferredRanges(input.records.map(byFrame)),

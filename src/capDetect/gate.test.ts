@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { DEFAULT_GATE, expectedInferences, INITIAL_GATE, noteDetection, shouldInfer } from './gate';
+import { DEFAULT_GATE, expectedInferences, FULL_GATE, gateFor, INITIAL_GATE, noteDetection, shouldInfer } from './gate';
 
 const range = (n: number) => Array.from({ length: n }, (_, i) => i);
 
@@ -35,5 +35,20 @@ describe('gate', () => {
   it('見積もり用の推論回数: 間引きの分 + 連続の分 + 遡りの分（コマ数を超えない）', () => {
     expect(expectedInferences(600)).toBe(120 + 30 + 4);
     expect(expectedInferences(20)).toBe(20);
+  });
+});
+
+describe('全コマ推論', () => {
+  it('全コマのモードでは、見つかる前からすべてのコマを推論する', () => {
+    expect(range(12).filter((f) => shouldInfer(INITIAL_GATE, f, FULL_GATE))).toEqual(range(12));
+  });
+
+  it('推論する見込みのコマ数は動画のコマ数そのもの', () => {
+    expect(expectedInferences(600, FULL_GATE)).toBe(600);
+  });
+
+  it('推論のしかたから間引きの設定を選ぶ', () => {
+    expect(gateFor('sampled')).toBe(DEFAULT_GATE);
+    expect(gateFor('all')).toBe(FULL_GATE);
   });
 });

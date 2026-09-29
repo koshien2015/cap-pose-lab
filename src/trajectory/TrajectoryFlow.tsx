@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { gateFor, type InferenceMode } from '../capDetect/gate';
 import { friendlyError, type FriendlyError } from '../content/errors';
 import { isDecoderSupported, loadPickedVideos, type PickedVideo } from '../flow/pickVideos';
 import type { CapabilityReport } from '../inference/capabilities';
@@ -11,7 +12,9 @@ import { isOrtRuntimeLoaded } from '../inference/ortSession';
 import type { Recommendation } from '../inference/recommend';
 import type { DetectRun } from '../inference/runDetect';
 import { loadMeasuredSpeed } from '../inference/speedStore';
+import { MAX_DURATION_SEC } from '../inference/videoLimits';
 import { demuxVideo } from '../inference/videoSource';
+import { Choice } from '../ui/Choice';
 import { DownloadConsent, type DownloadItem } from '../ui/DownloadConsent';
 import { EnvStatus } from '../ui/EnvStatus';
 import { ErrorPanel } from '../ui/ErrorPanel';
@@ -41,6 +44,7 @@ export function TrajectoryFlow({ report, rec, manifest, onExit }: Props) {
   const [progress, setProgress] = useState<ProgressState>({ label: '', done: 0, total: 0, eta: '' });
   const [run, setRun] = useState<DetectRun | null>(null);
   const [error, setError] = useState<FriendlyError | null>(null);
+  const [inference, setInference] = useState<InferenceMode>('sampled');
   const abortRef = useRef<AbortController | null>(null);
   useWakeLock(step === 'running');
   // 結果を差し替えたとき・画面を離れるときに縮小画像を解放する
@@ -52,7 +56,13 @@ export function TrajectoryFlow({ report, rec, manifest, onExit }: Props) {
   const frames = ready?.video?.info.frameCount ?? 0;
   const estimate =
     ready && ep
-      ? formatDuration(estimateDetectSeconds(frames, ep, { isMobile: report?.isMobile ?? false, measuredMsPerInference: loadMeasuredSpeed('capDetect', ep) }) * 1000)
+      ? formatDuration(
+          estimateDetectSeconds(frames, ep, {
+            isMobile: report?.isMobile ?? false,
+            measuredMsPerInference: loadMeasuredSpeed('capDetect', ep),
+            gate: gateFor(inference),
+          }) * 1000,
+        )
       : null;
 
   const onPick = useCallback(async (files: File[]) => {
@@ -78,14 +88,16 @@ export function TrajectoryFlow({ report, rec, manifest, onExit }: Props) {
     setStep('running');
     setError(null);
     try {
-      const result = await runTrajectory({ video: ready.video, fileName: ready.file.name, detector, ep, signal: controller.signal, onProgress: setProgress });
+      const result = await runTrajectory({
+        video: ready.video, fileName: ready.file.name, detector, ep, inference, signal: controller.signal, onProgress: setProgress,
+      });
       setRun(result);
       setStep('result');
     } catch (e) {
       setError(friendlyError(e));
       setStep('setup');
     }
-  }, [detector, ep, ready]);
+  }, [detector, ep, ready, inference]);
 
   return (
     <section className="space-y-6">
@@ -94,8 +106,22 @@ export function TrajectoryFlow({ report, rec, manifest, onExit }: Props) {
       {step === 'setup' && (
         <>
           <EnvStatus report={report} rec={rec} messages={rec ? trajectoryEnvMessages(rec) : undefined} />
-          <p className="text-sm">投手の後ろから撮った、1球分の動画（20秒以内）を選んでください。</p>
+          <p className="text-sm">投手の後ろから撮った、1球分の動画（{MAX_DURATION_SEC}秒以内）を選んでください。</p>
           <VideoPicker picked={picked} onPick={onPick} max={1} />
+          {ready && (
+            <div className="space-y-2">
+              <p className="text-sm">
+                推論のしかた: 「はやい」は5コマおきに探し、キャップを見つけたら全コマを調べます。飛んでいる間に一度も見つけられないと、その球を取りこぼします。
+                「全コマ」はすべてのコマを調べるので確実ですが、時間が約5倍かかります。
+              </p>
+              <Choice<InferenceMode>
+                name="推論のしかた"
+                value={inference}
+                options={[['sampled', 'はやい'], ['all', '全コマ']]}
+                onPick={setInference}
+              />
+            </div>
+          )}
           {estimate && <p className="text-sm">解析の目安: {estimate}</p>}
           <button type="button" onClick={prepare} disabled={!detector || !ready || rec?.verdict === 'unsupported'} className={primary}>
             次へ

@@ -23,6 +23,7 @@ function makeRun(records: FrameRecord[] = syntheticThrow()): DetectRun {
     records,
     images: records.map((r) => ({ frame: r.frame, image: fakeImage() })),
     msPerInference: 40,
+    inference: 'all',
   };
 }
 
@@ -61,6 +62,12 @@ describe('TrajectoryResult', () => {
       'clip_trajectory.json',
       expect.objectContaining({ schema: 'cap-pose-lab/trajectory', speedKmh: 86.6, release: { frame: 100, source: 'auto' } }),
     );
+  });
+
+  it('保存する JSON に推論のしかたを残す', async () => {
+    render(<TrajectoryResult run={makeRun()} model={model} onExit={() => undefined} />);
+    await userEvent.click(screen.getByRole('button', { name: '結果を保存' }));
+    expect(downloadJson).toHaveBeenLastCalledWith('clip_trajectory.json', expect.objectContaining({ inference: 'all' }));
   });
 
   it('検出した点は誤検出かどうかで分けず、すべて一覧に出す', () => {
