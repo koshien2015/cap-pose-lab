@@ -1,3 +1,4 @@
+import type { Presentation } from './presentation';
 import { jointLabel, type SyncMode, type VectorMode } from './viewerMath';
 
 export interface Settings {
@@ -15,6 +16,7 @@ interface Props {
   readonly onChange: (next: Settings) => void;
   readonly joints: readonly string[];
   readonly progressAvailable: boolean;
+  readonly presentation: Presentation;
 }
 
 const selectClass = 'min-h-11 w-full rounded-lg border border-current/30 bg-transparent px-2';
@@ -30,16 +32,16 @@ function Field({ id, label, children }: { readonly id: string; readonly label: s
   );
 }
 
-export function ViewerSettings({ settings, onChange, joints, progressAvailable }: Props) {
+export function ViewerSettings({ settings, onChange, joints, progressAvailable, presentation }: Props) {
   const set = <K extends keyof Settings>(key: K, value: Settings[K]) => onChange({ ...settings, [key]: value });
   return (
     <div className="grid grid-cols-2 gap-3 text-sm">
       <Field id="sync" label="そろえ方">
         <select id="sync" className={selectClass} value={settings.sync} onChange={(e) => set('sync', e.target.value as SyncMode)}>
           <option value="progress" disabled={!progressAvailable}>
-            進行率（足接地→リリース）
+            進行率（{presentation.progressLabel}）
           </option>
-          <option value="release">リリースに合わせる</option>
+          <option value="release">{presentation.anchorLabel}に合わせる</option>
           <option value="frame">コマ番号</option>
         </select>
       </Field>
@@ -58,7 +60,7 @@ export function ViewerSettings({ settings, onChange, joints, progressAvailable }
       </Field>
       <Field id="target" label="矢印を出す場所">
         <select id="target" className={selectClass} value={settings.target} onChange={(e) => set('target', e.target.value)}>
-          <option value="__arm__">投げる腕</option>
+          <option value="__arm__">{presentation.armLabel}</option>
           <option value="__all__">全身</option>
           {joints.map((j) => (
             <option key={j} value={j}>
@@ -88,10 +90,10 @@ export function ViewerSettings({ settings, onChange, joints, progressAvailable }
       </Field>
       <label className="col-span-2 flex min-h-11 items-center gap-2">
         <input type="checkbox" checked={settings.trail} onChange={(e) => set('trail', e.target.checked)} />
-        腕の通り道を表示する
+        {presentation.trailLabel}
       </label>
       {!progressAvailable && (
-        <p className="col-span-2 text-xs opacity-80">「進行率」は、足接地とリリースを指定すると選べます。</p>
+        <p className="col-span-2 text-xs opacity-80">{presentation.progressHint}</p>
       )}
     </div>
   );

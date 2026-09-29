@@ -1,6 +1,6 @@
 import type { ViewerPayload } from '../analysis/payload';
 import { COLORS } from './draw';
-import { diffText, formatMagnitude, formatNumber, realIndex, targetNames, vectorAt, type ViewState } from './viewerMath';
+import { diffText, formatMagnitude, formatNumber, pitchCursor, realIndex, targetNames, vectorAt, type ViewState } from './viewerMath';
 
 interface Props {
   readonly payload: ViewerPayload;
@@ -12,7 +12,7 @@ interface Props {
 /** その時点の数値（2球目が無いときも B 列は空けておく。列がずれると別の投球の値に見えるため） */
 export function ReadoutTable({ payload, cursor, state, joints }: Props) {
   const pitches = payload.pitches;
-  const positions = pitches.map((p) => realIndex(p, cursor, state));
+  const positions = pitches.map((p, i) => realIndex(p, pitchCursor(cursor, i, state), state));
   const rows: [string, string, string, string][] = [];
   const pad = (values: string[]) => [values[0] ?? '—', values[1] ?? '—'] as const;
 
@@ -32,9 +32,9 @@ export function ReadoutTable({ payload, cursor, state, joints }: Props) {
   });
   if (state.vector !== 'none') {
     const unit = state.sync === 'progress' ? '/1%' : '/秒';
-    const magnitudes = pitches.map((p) => {
+    const magnitudes = pitches.map((p, i) => {
       const vectors = targetNames(p, state, joints)
-        .map((name) => vectorAt(p, cursor, name, state))
+        .map((name) => vectorAt(p, pitchCursor(cursor, i, state), name, state))
         .filter((v): v is [number, number] => v !== null);
       return vectors.length ? Math.max(...vectors.map(([x, y]) => Math.hypot(x, y))) : null;
     });
