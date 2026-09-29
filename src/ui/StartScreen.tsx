@@ -1,4 +1,12 @@
-export function StartScreen({ onStart, onLoadSaved }: { readonly onStart: () => void; readonly onLoadSaved: () => void }) {
+export function StartScreen({
+  onStart,
+  onLoadSaved,
+  onTrajectory,
+}: {
+  readonly onStart: () => void;
+  readonly onLoadSaved: () => void;
+  readonly onTrajectory: () => void;
+}) {
   return (
     <section className="space-y-4">
       <p>スマホで撮った投球動画から、投手の体の動き（骨格）を取り出します。</p>
@@ -12,6 +20,11 @@ export function StartScreen({ onStart, onLoadSaved }: { readonly onStart: () => 
       </button>
       <button type="button" onClick={onLoadSaved} className="w-full min-h-11 rounded-xl border border-current/40">
         保存した解析結果で比べる
+      </button>
+      <hr className="border-current/20" />
+      <p className="text-sm">投手の後ろから撮った1球分の動画で、キャップの軌跡と平均球速を推定します（試験的）。</p>
+      <button type="button" onClick={onTrajectory} className="w-full min-h-11 rounded-xl border border-current/40">
+        投球の軌跡を見る（試験的）
       </button>
     </section>
   );

@@ -21,16 +21,18 @@ import { CompareFlow } from './ui/CompareFlow';
 import { DownloadConsent, type DownloadItem } from './ui/DownloadConsent';
 import { downloadJson } from './ui/download';
 import { EnvStatus } from './ui/EnvStatus';
+import { ErrorPanel } from './ui/ErrorPanel';
 import { ExportPanel } from './ui/ExportPanel';
 import { ModePicker } from './ui/ModePicker';
 import { PitcherConfirm } from './ui/PitcherConfirm';
 import { PoseFileLoader } from './ui/PoseFileLoader';
 import { type ProgressState, RunProgress } from './ui/RunProgress';
 import { StartScreen } from './ui/StartScreen';
+import { TrajectoryFlow } from './trajectory/TrajectoryFlow';
 import { VideoPicker } from './ui/VideoPicker';
 import { useWakeLock } from './ui/useWakeLock';
 
-type Step = 'start' | 'setup' | 'consent' | 'running' | 'result' | 'load' | 'compare';
+type Step = 'start' | 'setup' | 'consent' | 'running' | 'result' | 'load' | 'compare' | 'trajectory';
 
 interface Tracked {
   readonly run: PoseRun;
@@ -174,22 +176,8 @@ export function App() {
   return (
     <main className="mx-auto max-w-xl space-y-6 px-4 py-6">
       <h1 className="text-xl font-bold">投球フォーム解析</h1>
-      {error && (
-        <section role="alert" className="space-y-1 rounded-xl border-2 border-red-500 p-3 text-sm">
-          <p className="font-bold">{error.title}</p>
-          <p>{error.action}</p>
-          {error.retryable && model && ready.length > 0 && (
-            <button type="button" onClick={run} className="w-full min-h-11 rounded-xl bg-cyan-600 font-bold text-white">
-              もう一度試す
-            </button>
-          )}
-          <details>
-            <summary className="min-h-11 cursor-pointer py-2">詳しい情報</summary>
-            <pre className="whitespace-pre-wrap break-all text-xs">{error.detail}</pre>
-          </details>
-        </section>
-      )}
-      {step === 'start' && <StartScreen onStart={() => setStep('setup')} onLoadSaved={() => setStep('load')} />}
+      {error && <ErrorPanel error={error} onRetry={error.retryable && model && ready.length > 0 ? run : undefined} />}
+      {step === 'start' && <StartScreen onStart={() => setStep('setup')} onLoadSaved={() => setStep('load')} onTrajectory={() => setStep('trajectory')} />}
       {step === 'load' && (
         <>
           <PoseFileLoader
@@ -218,6 +206,7 @@ export function App() {
           onExit={() => setStep(compareFrom)}
         />
       )}
+      {step === 'trajectory' && <TrajectoryFlow report={report} rec={rec} manifest={manifest} onExit={() => setStep('start')} />}
       {step === 'setup' && (
         <>
           <EnvStatus report={report} rec={rec} />
