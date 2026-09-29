@@ -24,6 +24,12 @@ describe('speedStore', () => {
     expect(loadMeasuredSpeed('fast', 'webgpu', broken)).toBeUndefined();
   });
 
+  it('キャップ検出の速度も別のキーで残せる', () => {
+    saveMeasuredSpeed('capDetect', 'webgpu', 42);
+    expect(loadMeasuredSpeed('capDetect', 'webgpu')).toBe(42);
+    expect(loadMeasuredSpeed('fast', 'webgpu')).toBeUndefined();
+  });
+
   it('壊れた値は無視する', () => {
     localStorage.setItem('capPoseLab.speed.fast.webgpu', 'abc');
     expect(loadMeasuredSpeed('fast', 'webgpu')).toBeUndefined();

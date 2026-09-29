@@ -5,7 +5,10 @@
 import type { ModeId } from './manifest';
 import type { ExecutionProvider } from './recommend';
 
-const key = (mode: ModeId, ep: ExecutionProvider) => `capPoseLab.speed.${mode}.${ep}`;
+/** 姿勢推定のモードごと、またはキャップ検出（1回の推論あたり） */
+export type SpeedKey = ModeId | 'capDetect';
+
+const key = (mode: SpeedKey, ep: ExecutionProvider) => `capPoseLab.speed.${mode}.${ep}`;
 
 function defaultStorage(): Storage | undefined {
   try {
@@ -16,7 +19,7 @@ function defaultStorage(): Storage | undefined {
 }
 
 export function loadMeasuredSpeed(
-  mode: ModeId,
+  mode: SpeedKey,
   ep: ExecutionProvider,
   storage: Storage | undefined = defaultStorage(),
 ): number | undefined {
@@ -29,7 +32,7 @@ export function loadMeasuredSpeed(
 }
 
 export function saveMeasuredSpeed(
-  mode: ModeId,
+  mode: SpeedKey,
   ep: ExecutionProvider,
   msPerFrame: number,
   storage: Storage | undefined = defaultStorage(),

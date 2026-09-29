@@ -37,15 +37,18 @@ export default defineConfig({
     include: ['src/**/*.test.{ts,tsx}'],
     coverage: {
       provider: 'v8',
-      include: ['src/inference/**/*.ts', 'src/tracking/**/*.ts', 'src/export/**/*.ts', 'src/content/**/*.ts', 'src/flow/**/*.ts', 'src/analysis/**/*.ts', 'src/viewer/viewerMath.ts'],
+      include: ['src/inference/**/*.ts', 'src/tracking/**/*.ts', 'src/export/**/*.ts', 'src/content/**/*.ts', 'src/flow/**/*.ts', 'src/analysis/**/*.ts', 'src/viewer/viewerMath.ts', 'src/capDetect/**/*.ts', 'src/trajectory/messages.ts'],
       // ブラウザ API に直結する層は E2E（計画4）で見る
       exclude: [
         'src/inference/videoSource.ts',
         'src/inference/frameCanvas.ts',
         'src/inference/ortSession.ts',
         'src/inference/runPose.ts',
+        'src/inference/runDetect.ts',
         'src/inference/capabilities.ts',
         'src/analysis/fixtures.ts',
+        'src/capDetect/fixtures.ts',
+        'src/capDetect/syntheticThrow.ts',
         '**/*.test.ts',
       ],
       thresholds: { lines: 80, functions: 80, branches: 80, statements: 80 },

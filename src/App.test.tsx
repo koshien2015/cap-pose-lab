@@ -24,4 +24,10 @@ describe('App', () => {
     await userEvent.click(screen.getByRole('button', { name: '保存した解析結果で比べる' }));
     expect(screen.getByText(/保存した解析結果（_pose.json）を選ぶ/)).toBeInTheDocument();
   });
+
+  it('はじめに画面から、投球の軌跡の解析に進める', async () => {
+    render(<App />);
+    await userEvent.click(screen.getByRole('button', { name: '投球の軌跡を見る（試験的）' }));
+    expect(screen.getByRole('heading', { name: '投球の軌跡（試験的）' })).toBeInTheDocument();
+  });
 });

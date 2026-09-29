@@ -31,5 +31,31 @@
       "sizeMB": 41,
       "output": "yolo26-end2end"
     }
-  ]
+  ],
+  "capDetector": {
+    "version": "y26m-1280",
+    "weights": "yolo26m-1280px-120epoch.pt",
+    "sha256": "f6d5f8dc339f9396b6107a5e6d1b420f521227b101df29bd887a09e92baed87f",
+    "source": "https://github.com/koshien2015/cap-pose-lab/releases/tag/cap-detector-y26m-1280",
+    "file": "cap-detector-y26m-1280.fp32.onnx",
+    "imgsz": 1280,
+    "sizeMB": 84.3,
+    "precision": "fp32",
+    "preprocess": "enhanced",
+    "output": "yolo26-end2end",
+    "classes": [
+      "cap",
+      "pitcher_motion",
+      "batter_stance",
+      "umpire",
+      "catcher",
+      "pitcher_release",
+      "batter_swing",
+      "catcher_stance",
+      "catcher_catch",
+      "catcher_throw",
+      "catcher_miss"
+    ],
+    "license": "AGPL-3.0"
+  }
 }
