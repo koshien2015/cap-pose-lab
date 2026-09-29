@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { VideoInfo } from './videoSource';
-import { checkFileSize, checkVideoLimits, MAX_FILE_MB } from './videoLimits';
+import { checkFileSize, checkVideoLimits, MAX_DURATION_SEC, MAX_FILE_MB, MAX_FRAMES } from './videoLimits';
 
 const info: VideoInfo = {
   codec: 'avc1.640029', codedWidth: 1920, codedHeight: 1080, rotation: 0,
@@ -14,9 +14,10 @@ describe('checkVideoLimits', () => {
   });
 
   it('長すぎる動画は切り出しを案内して断る', () => {
-    const r = checkVideoLimits({ ...info, durationSec: 60, frameCount: 3600 });
+    const durationSec = MAX_DURATION_SEC + 20;
+    const r = checkVideoLimits({ ...info, durationSec, frameCount: durationSec * 60 });
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.message).toContain('20秒');
+    if (!r.ok) expect(r.message).toContain(`${MAX_DURATION_SEC}秒`);
   });
 
   it('大きすぎるファイル（4K など）は断る', () => {
@@ -29,7 +30,9 @@ describe('checkVideoLimits', () => {
   });
 
   it('高 fps で短い動画（スロー撮影）は、長さではなくコマ数が多いと案内する', () => {
-    const r = checkVideoLimits({ ...info, fps: 240, durationSec: 10, frameCount: 2400 });
+    // 長さは上限の内側だが、コマ数だけが上限を超える
+    const frameCount = MAX_FRAMES + 240;
+    const r = checkVideoLimits({ ...info, fps: 240, durationSec: frameCount / 240, frameCount });
     expect(r.ok).toBe(false);
     if (!r.ok) {
       expect(r.message).not.toContain('長すぎます');
