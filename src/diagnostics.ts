@@ -25,6 +25,27 @@ async function tryInference(ep: 'webgpu' | 'wasm') {
   log('OK');
 }
 
+const params = new URLSearchParams(location.search);
+
+/** 1回目はシェーダの準備を含むので、2〜6回目の平均を出す */
+async function tryDetector(ep: 'webgpu' | 'wasm') {
+  const manifest = await loadManifest();
+  const override = params.get('detector');
+  const file = override && /^[\w.-]+\.onnx$/.test(override) ? override : manifest.capDetector.file;
+  const bytes = await fetchModel(modelUrl({ file }), await openModelCache(), () => undefined);
+  const { session, createMs } = await createSession(bytes, ep);
+  const [w, h] = [640, 384];
+  const input = new Float32Array(3 * w * h).fill(0.45);
+  const first = await runPose(session, input, w, h);
+  const t0 = performance.now();
+  for (let i = 0; i < 5; i++) await runPose(session, input, w, h);
+  log(
+    `キャップ検出 ${file} (${ep}): セッション生成 ${Math.round(createMs)} ms / 推論1回（平均） ${Math.round((performance.now() - t0) / 5)} ms / 出力 ${first.length} 要素`,
+  );
+  await session.release();
+  log('OK');
+}
+
 async function main() {
   const report = await detectCapabilities();
   const rec = recommend(report);
@@ -38,6 +59,15 @@ async function main() {
     button.hidden = true;
     tryInference(ep).catch((e) => log(`失敗: ${String(e)}`));
   });
+  const detectorButton = document.getElementById('try-detector');
+  const detectorEp = params.get('ep') === 'wasm' ? 'wasm' : ep;
+  if (detectorButton) {
+    detectorButton.hidden = false;
+    detectorButton.addEventListener('click', () => {
+      detectorButton.hidden = true;
+      tryDetector(detectorEp).catch((e) => log(`失敗: ${String(e)}`));
+    });
+  }
 }
 
 main().catch((e) => log(`失敗: ${String(e)}`));
