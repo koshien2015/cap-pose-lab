@@ -72,7 +72,8 @@ export class FramePreprocessor {
     this.rotation = rotation;
   }
 
-  toTensor(frame: VideoFrame): { tensor: Float32Array; letterbox: Letterbox } {
+  /** レターボックス済みの RGBA（getImageData の新しい配列。呼ぶたびに別の配列になる） */
+  toRgba(frame: VideoFrame): { rgba: Uint8ClampedArray; letterbox: Letterbox } {
     const { width, height } = displaySize(frame, this.rotation);
     if (!this.letterbox || !this.canvas) {
       this.letterbox = computeLetterbox(width, height, this.imgsz);
@@ -83,8 +84,12 @@ export class FramePreprocessor {
     ctx.fillStyle = `rgb(${PAD_VALUE},${PAD_VALUE},${PAD_VALUE})`;
     ctx.fillRect(0, 0, lb.inputWidth, lb.inputHeight);
     drawRotated(ctx, frame, this.rotation, lb.padLeft, lb.padTop, lb.newWidth, lb.newHeight);
-    const image = ctx.getImageData(0, 0, lb.inputWidth, lb.inputHeight);
-    return { tensor: rgbaToChw(image.data, lb.inputWidth, lb.inputHeight), letterbox: lb };
+    return { rgba: ctx.getImageData(0, 0, lb.inputWidth, lb.inputHeight).data, letterbox: lb };
+  }
+
+  toTensor(frame: VideoFrame): { tensor: Float32Array; letterbox: Letterbox } {
+    const { rgba, letterbox } = this.toRgba(frame);
+    return { tensor: rgbaToChw(rgba, letterbox.inputWidth, letterbox.inputHeight), letterbox };
   }
 }
 
