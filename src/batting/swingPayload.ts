@@ -15,6 +15,7 @@ export const BATTER_EVENT_LABELS: Readonly<Record<string, string>> = { top: 'ト
 export const BATTER_READING_NOTES: readonly string[] = [
   '座標は胴の長さ（肩の中点から腰の中点まで）を 1 とした値です。原点は構え（動画の先頭）のときの腰の中心で、ホームベース側を右、上を上にそろえています（左打者は左右を反転しています）。',
   '「開き」は、捕手の後ろから見た肩幅・腰幅の写り方から見た値で、角度ではありません。投手の方向（奥行き）の動きは測れません。2本の差は観測された違いで、原因を示すものではありません。',
+  'カメラが打者に近いと、まっすぐ踏み出しても「踏み込みの向き」が「閉じ」寄りに出て、構えの「開き」も 0 から少しずれます（打者が画面の中心から外れた位置に立つため）。数メートル以上離れて撮ると小さくなります。',
   '打者の横にいる主審・捕手を途中から追ってしまうことがあります。骨格が急に別の場所へ飛んだら、解析結果の画面で打者をタップして選び直してください。',
 ];
 
@@ -77,5 +78,6 @@ export function buildSwingPayload(analyses: readonly SwingAnalysis[]): ViewerPay
     arm_label: '両手',
     trail_label: '手の通り道を表示する',
     reading_notes: BATTER_READING_NOTES,
+    panel_digits: 2,
   };
 }

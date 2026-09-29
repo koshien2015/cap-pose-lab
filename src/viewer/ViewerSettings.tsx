@@ -17,6 +17,8 @@ interface Props {
   readonly joints: readonly string[];
   readonly progressAvailable: boolean;
   readonly presentation: Presentation;
+  /** 「基準の瞬間に合わせる」が使えないときの理由（使えるなら null） */
+  readonly anchorHint: string | null;
 }
 
 const selectClass = 'min-h-11 w-full rounded-lg border border-current/30 bg-transparent px-2';
@@ -32,7 +34,7 @@ function Field({ id, label, children }: { readonly id: string; readonly label: s
   );
 }
 
-export function ViewerSettings({ settings, onChange, joints, progressAvailable, presentation }: Props) {
+export function ViewerSettings({ settings, onChange, joints, progressAvailable, presentation, anchorHint }: Props) {
   const set = <K extends keyof Settings>(key: K, value: Settings[K]) => onChange({ ...settings, [key]: value });
   return (
     <div className="grid grid-cols-2 gap-3 text-sm">
@@ -41,7 +43,9 @@ export function ViewerSettings({ settings, onChange, joints, progressAvailable, 
           <option value="progress" disabled={!progressAvailable}>
             進行率（{presentation.progressLabel}）
           </option>
-          <option value="release">{presentation.anchorLabel}に合わせる</option>
+          <option value="release" disabled={anchorHint !== null}>
+            {presentation.anchorLabel}に合わせる
+          </option>
           <option value="frame">コマ番号</option>
         </select>
       </Field>
@@ -92,6 +96,7 @@ export function ViewerSettings({ settings, onChange, joints, progressAvailable, 
         <input type="checkbox" checked={settings.trail} onChange={(e) => set('trail', e.target.checked)} />
         {presentation.trailLabel}
       </label>
+      {anchorHint && <p className="col-span-2 text-xs opacity-80">{anchorHint}</p>}
       {!progressAvailable && (
         <p className="col-span-2 text-xs opacity-80">{presentation.progressHint}</p>
       )}

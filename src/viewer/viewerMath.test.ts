@@ -4,7 +4,7 @@ import pair from '../analysis/__fixtures__/pair.json';
 import { loadFixture } from '../analysis/fixtures';
 import type { ViewerPayload } from '../analysis/payload';
 import {
-  anchorIndex, anchorIndexFor, cursorOfFrame, jointLabel, cursorRange, defaultSync, diffText, formatMagnitude, frameAt, pitchCursor, realIndex,
+  anchorAvailable, anchorIndex, anchorIndexFor, cursorOfFrame, jointLabel, cursorRange, defaultSync, diffText, formatMagnitude, frameAt, pitchCursor, realIndex,
   shiftLimit, targetNames, vectorAt, type ViewState,
 } from './viewerMath';
 
@@ -140,5 +140,30 @@ describe('比較用データでの上書き（打者）', () => {
 
   it('両手は日本語名で出す', () => {
     expect(jointLabel('hands')).toBe('両手');
+  });
+});
+
+describe('基準の瞬間が指定されていないとき（打者）', () => {
+  const withImpact = (frames: (number | null)[]): ViewerPayload => ({
+    ...noEvents,
+    anchor_event: 'impact',
+    pitches: frames.map((frame) => ({ ...noEvents.pitches[0], events: { ...noEvents.pitches[0].events, impact: { frame, source: 'manual' } } })),
+  });
+
+  it('どれか1本でもインパクトが無ければ「インパクトに合わせる」は使えず、既定はコマ番号', () => {
+    const one = withImpact([noEvents.pitches[0].frames[3].f, null]);
+    expect(anchorAvailable(one)).toBe(false);
+    expect(defaultSync(one)).toBe('frame');
+  });
+
+  it('全部にインパクトがあれば使え、既定はインパクト', () => {
+    const f = noEvents.pitches[0].frames[3].f;
+    expect(anchorAvailable(withImpact([f, f]))).toBe(true);
+    expect(defaultSync(withImpact([f, f]))).toBe('release');
+  });
+
+  it('投手（anchor_event なし）は今のまま使える', () => {
+    expect(anchorAvailable(noEvents)).toBe(true);
+    expect(defaultSync(noEvents)).toBe('release');
   });
 });

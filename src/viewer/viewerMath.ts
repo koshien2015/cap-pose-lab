@@ -37,8 +37,19 @@ export function jointLabel(name: string): string {
   return JOINT_LABELS[name] ?? name;
 }
 
+/**
+ * 「基準の瞬間に合わせる」が使えるか。打者は全部の動画にインパクトが指定されているときだけ使える
+ * （無い動画を先頭で合わせると、揃っていないのに揃って見えるため）。投手（anchor_event なし）は今のまま使える
+ */
+export function anchorAvailable(payload: ViewerPayload): boolean {
+  const event = payload.anchor_event;
+  if (event === undefined) return true;
+  return payload.pitches.every((p) => p.events[event]?.frame !== null && p.events[event]?.frame !== undefined);
+}
+
 export function defaultSync(payload: ViewerPayload): SyncMode {
-  return payload.pitches.some((p) => !p.normalized) ? 'release' : 'progress';
+  if (payload.pitches.every((p) => p.normalized)) return 'progress';
+  return anchorAvailable(payload) ? 'release' : 'frame';
 }
 
 export function jointNames(payload: ViewerPayload): string[] {

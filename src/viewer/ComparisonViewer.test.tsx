@@ -5,6 +5,9 @@ import { describe, expect, it } from 'vitest';
 import pair from '../analysis/__fixtures__/pair.json';
 import { loadFixture } from '../analysis/fixtures';
 import type { ViewerPayload } from '../analysis/payload';
+import { analyzeSwing } from '../batting/analyzeSwing';
+import { buildSwingPayload } from '../batting/swingPayload';
+import { syntheticSwing } from '../batting/syntheticSwing';
 import { ComparisonViewer } from './ComparisonViewer';
 
 const payload = pair.payload as unknown as ViewerPayload;
@@ -120,5 +123,30 @@ describe('2本目をずらす', () => {
     const one = loadFixture('no_events').expected.payload as unknown as ViewerPayload;
     render(<ComparisonViewer payload={one} />);
     expect(screen.queryByRole('button', { name: '2本目を1コマ後ろへ' })).toBeNull();
+  });
+});
+
+describe('打者の比較画面', () => {
+  const swing = (impactFrame: number | null) =>
+    analyzeSwing(syntheticSwing({ bats: 'right', headDx: (f) => 0.002 * f }), {
+      swingId: `s${impactFrame}`, label: '', bats: 'right', fps: 60, topFrame: null, impactFrame,
+    });
+
+  it('インパクトが無い1本があると「インパクトに合わせる」を選べず、理由を出す', () => {
+    render(<ComparisonViewer payload={buildSwingPayload([swing(40), swing(null)])} />);
+    expect((screen.getByRole('option', { name: 'インパクトに合わせる' }) as HTMLOptionElement).disabled).toBe(true);
+    expect((screen.getByRole('combobox', { name: 'そろえ方' }) as HTMLSelectElement).value).toBe('frame');
+    expect(screen.getByText(/2本ともインパクトを指定すると選べます/)).toBeInTheDocument();
+  });
+
+  it('コマごとの値は小数2桁で出す（胴の長さ単位の小さな動きが 0.0 に丸まらない）', () => {
+    render(<ComparisonViewer payload={buildSwingPayload([swing(40), swing(40)])} />);
+    const row = within(screen.getAllByRole('table').at(-1)!).getByText('手の高さ').closest('tr')!;
+    expect(row.querySelectorAll('td')[1].textContent).toMatch(/^\d+\.\d{2}$/);
+  });
+
+  it('2本目をずらす操作は、画面下の再生バーの外に置く（スマホで画面を覆わない）', async () => {
+    render(<ComparisonViewer payload={buildSwingPayload([swing(40), swing(40)])} />);
+    expect(screen.getByRole('slider', { name: '2本目のずれ' }).closest('.fixed')).toBeNull();
   });
 });

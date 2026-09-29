@@ -55,6 +55,11 @@ describe('buildSwingPayload', () => {
     expect(() => buildSwingPayload([a])).toThrow(/打者の上半身と腰/);
   });
 
+  it('読み方で、カメラが近いと踏み込みが「閉じ」寄りに出ることを伝える', () => {
+    const payload = buildSwingPayload([analysisOf({ bats: 'right' })]);
+    expect(payload.reading_notes!.join()).toMatch(/カメラが打者に近いと/);
+  });
+
   it('0本・3本以上は止める', () => {
     expect(() => buildSwingPayload([])).toThrow(ViewerDataError);
     const a = analysisOf({ bats: 'right' });

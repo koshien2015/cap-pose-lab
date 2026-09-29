@@ -22,13 +22,14 @@ export function ReadoutTable({ payload, cursor, state, joints }: Props) {
     ...pad(pitches.map((p, i) => (positions[i] === null || p.frames[positions[i]!].p === null ? '—' : formatNumber(p.frames[positions[i]!].p, 1)))),
     '',
   ]);
+  const digits = payload.panel_digits ?? 1;
   Object.entries(payload.panel_series).forEach(([key, label]) => {
     const values = pitches.map((p, i) => {
       const index = positions[i];
       const series = p.series[key];
       return index === null || !series ? null : (series[index] ?? null);
     });
-    rows.push([label, ...pad(values.map((v) => formatNumber(v))), diffText(values)]);
+    rows.push([label, ...pad(values.map((v) => formatNumber(v, digits))), diffText(values, (v) => v.toFixed(digits))]);
   });
   if (state.vector !== 'none') {
     const unit = state.sync === 'progress' ? '/1%' : '/秒';

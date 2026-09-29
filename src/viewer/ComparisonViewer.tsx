@@ -8,7 +8,7 @@ import { ShiftControl } from './ShiftControl';
 import { SummaryTable } from './SummaryTable';
 import { ViewerSettings, type Settings } from './ViewerSettings';
 import {
-  bounds as computeBounds, cursorOfFrame, cursorRange, defaultSync, jointNames, referenceMagnitude, shiftLimit, type ViewState,
+  anchorAvailable, bounds as computeBounds, cursorOfFrame, cursorRange, defaultSync, jointNames, referenceMagnitude, shiftLimit, type ViewState,
 } from './viewerMath';
 
 /** 人は縦長なので、縦横比どおりだと画面から溢れる。高さで頭打ちにする */
@@ -42,6 +42,9 @@ export function ComparisonViewer({ payload }: { readonly payload: ViewerPayload 
   );
   const state: ViewState = useMemo(() => ({ ...baseState, shift }), [baseState, shift]);
   const shifting = payload.pitches.length === 2 && settings.sync !== 'progress';
+  const anchorHint = anchorAvailable(payload)
+    ? null
+    : `「${presentation.anchorLabel}に合わせる」は、${payload.pitches.length === 2 ? '2本とも' : ''}${presentation.anchorLabel}を指定すると選べます。`;
   const range = useMemo(() => cursorRange(payload, state), [payload, state]);
   const [rawCursor, setCursor] = useState(0);
   const cursor = Math.min(range.max, Math.max(range.min, rawCursor));
@@ -115,8 +118,26 @@ export function ComparisonViewer({ payload }: { readonly payload: ViewerPayload 
   );
 
   return (
-    <section className={`space-y-4 ${shifting ? 'pb-64' : 'pb-40'}`}>
-      <ViewerSettings settings={settings} onChange={setSettings} joints={joints} progressAvailable={progressAvailable} presentation={presentation} />
+    <section className="space-y-4 pb-40">
+      <ViewerSettings
+        settings={settings}
+        onChange={setSettings}
+        joints={joints}
+        progressAvailable={progressAvailable}
+        presentation={presentation}
+        anchorHint={anchorHint}
+      />
+      {/* 再生バー（画面下に固定）に入れるとスマホの画面を覆い、コマのスライダーと取り違えやすいので、設定の下に置く */}
+      {shifting && (
+        <ShiftControl
+          value={shift}
+          limit={shiftLimit(payload)}
+          onChange={(next) => {
+            setPlaying(false);
+            setShift(next);
+          }}
+        />
+      )}
 
       <div className={`grid gap-3 ${settings.layout === 'side' && groups.length > 1 ? 'landscape:grid-cols-2 md:grid-cols-2' : ''}`}>
         {groups.map((pitchIndexes, i) => (
@@ -164,16 +185,6 @@ export function ComparisonViewer({ payload }: { readonly payload: ViewerPayload 
 
       <div className="fixed inset-x-0 bottom-0 border-t border-current/20 bg-[Canvas] px-4 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
         <div className="mx-auto max-w-xl space-y-1">
-          {shifting && (
-            <ShiftControl
-              value={shift}
-              limit={shiftLimit(payload)}
-              onChange={(next) => {
-                setPlaying(false);
-                setShift(next);
-              }}
-            />
-          )}
           <input
             type="range"
             aria-label="コマ"

@@ -111,6 +111,8 @@ export interface ViewerPayload {
   readonly trail_label?: string;
   /** 「読み方」の座標と限界の段落（矢印の段落は共通で出す） */
   readonly reading_notes?: readonly string[];
+  /** コマごとの値の表の小数の桁数（省略時は 1） */
+  readonly panel_digits?: number;
 }
 
 export const round = (v: number, digits: number) => Math.round(v * 10 ** digits) / 10 ** digits;
