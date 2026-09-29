@@ -66,7 +66,9 @@ export function modelUrl(model: { readonly file: string }): string {
 }
 
 export async function loadManifest(fetchImpl: typeof fetch = fetch): Promise<Manifest> {
-  const res = await fetchImpl(`${import.meta.env.BASE_URL}models/manifest.json`);
+  // GitHub Pages は 10 分キャッシュさせる。デプロイ直後に古い一覧と新しいプログラムが食い違わないよう、
+  // 毎回サーバに更新を確かめる（変わっていなければ 304 で済む）
+  const res = await fetchImpl(`${import.meta.env.BASE_URL}models/manifest.json`, { cache: 'no-cache' });
   if (!res.ok) throw new Error(`モデル一覧を取得できません（HTTP ${res.status}）`);
   return parseManifest(await res.json());
 }

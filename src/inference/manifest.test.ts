@@ -60,6 +60,16 @@ describe('modelUrl / loadManifest', () => {
     expect(modelUrl(m.capDetector)).toBe(`${import.meta.env.BASE_URL}models/cap-detector-y26m-1280.fp32.onnx`);
   });
 
+  it('ブラウザに残った古い一覧を使わず、毎回サーバに更新を確かめる（デプロイ直後にプログラムと食い違わないように）', async () => {
+    const calls: [string, RequestInit | undefined][] = [];
+    const fetchSpy = async (url: string, init?: RequestInit) => {
+      calls.push([url, init]);
+      return new Response(JSON.stringify(manifestJson));
+    };
+    await loadManifest(fetchSpy as typeof fetch);
+    expect(calls[0][1]?.cache).toBe('no-cache');
+  });
+
   it('取得に失敗したら分かる例外にする', async () => {
     const failing = async () => new Response('', { status: 404 });
     await expect(loadManifest(failing as typeof fetch)).rejects.toThrow('モデル一覧');
