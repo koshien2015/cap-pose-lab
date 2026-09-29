@@ -29,6 +29,15 @@ describe('buildViewerPayload（Python 版と一致）', () => {
     expectClose(payload, f.expected.payload);
   });
 
+  it('投手の比較用データには打者用の項目を書かない（Python 版との照合がキーまで見るため）', () => {
+    const f = loadFixture('clean_right');
+    const payload = buildViewerPayload([analyzePitch(f.input, configOf(f.config))]);
+    ['subject', 'anchor_event', 'anchor_label', 'progress_label', 'progress_hint', 'event_labels', 'arm_label', 'trail_label', 'reading_notes'].forEach(
+      (key) => expect(payload).not.toHaveProperty(key),
+    );
+    ['arm_joints', 'trail_joints', 'summary'].forEach((key) => expect(payload.pitches[0]).not.toHaveProperty(key));
+  });
+
   it('noisy_gaps（長い欠損あり）は normalized 以外が一致する', () => {
     const f = loadFixture('noisy_gaps');
     const payload = buildViewerPayload([analyzePitch(f.input, configOf(f.config))]);

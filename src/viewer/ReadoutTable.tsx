@@ -1,4 +1,3 @@
-import type { PanelKey } from '../analysis/analyzePitch';
 import type { ViewerPayload } from '../analysis/payload';
 import { COLORS } from './draw';
 import { diffText, formatMagnitude, formatNumber, realIndex, targetNames, vectorAt, type ViewState } from './viewerMath';
@@ -23,7 +22,7 @@ export function ReadoutTable({ payload, cursor, state, joints }: Props) {
     ...pad(pitches.map((p, i) => (positions[i] === null || p.frames[positions[i]!].p === null ? '—' : formatNumber(p.frames[positions[i]!].p, 1)))),
     '',
   ]);
-  (Object.entries(payload.panel_series) as [PanelKey, string][]).forEach(([key, label]) => {
+  Object.entries(payload.panel_series).forEach(([key, label]) => {
     const values = pitches.map((p, i) => {
       const index = positions[i];
       const series = p.series[key];

@@ -8,9 +8,9 @@
 
 import type { PanelKey, PitchAnalysis } from './analyzePitch';
 import { leadSideOf, PREPROCESSING } from './analyzePitch';
-import type { EventName } from './events';
 import { facingSign, midpoint, type Point } from './geometry';
 import { pointAt } from './tracks';
+import type { Subject } from './types';
 
 export const PANEL_SERIES: Readonly<Record<PanelKey, string>> = {
   elbow_angle_deg: '肘角度',
@@ -53,6 +53,22 @@ export interface ViewerFrame {
   readonly k: Readonly<Record<string, XY>>;
 }
 
+/** 1本分のまとめの値（打者のみ）。出せないときは value を null にし、reason に理由を書く */
+export interface SummaryItem {
+  readonly key: string;
+  readonly label: string;
+  /** 値のうしろに付ける単位（例: ' ms'。無ければ ''） */
+  readonly unit: string;
+  readonly digits: number;
+  /** 正の値に + を付けるか */
+  readonly signed: boolean;
+  readonly value: number | null;
+  /** 値に添える言葉（例: 「腰が先」）。無ければ null */
+  readonly text: string | null;
+  /** 出せない理由。値があれば null */
+  readonly reason: string | null;
+}
+
 export interface ViewerPitch {
   readonly pitch_id: string;
   readonly label: string;
@@ -65,21 +81,40 @@ export interface ViewerPitch {
   readonly batter_direction: 'left' | 'right';
   readonly scale_px: number;
   readonly scale_mode: string;
-  readonly events: Readonly<Record<EventName, { frame: number | null; source: string }>>;
+  readonly events: Readonly<Record<string, { frame: number | null; source: string }>>;
   readonly frames: readonly ViewerFrame[];
   readonly normalized: readonly { p: number; k: Readonly<Record<string, XY>> }[] | null;
-  readonly series: Readonly<Partial<Record<PanelKey, readonly (number | null)[]>>>;
+  readonly series: Readonly<Record<string, readonly (number | null)[]>>;
+  // 以下は打者の比較用データだけが書く（省略時は投手の表示）
+  /** 「投げる腕」の選択肢が指す関節（省略時は投球腕の肩・肘・手首） */
+  readonly arm_joints?: readonly string[];
+  /** 軌跡を描く関節（省略時は投球腕の手首・肘） */
+  readonly trail_joints?: readonly string[];
+  readonly summary?: readonly SummaryItem[];
 }
 
 export interface ViewerPayload {
   readonly edges: readonly (readonly [string, string])[];
-  readonly panel_series: Readonly<Record<PanelKey, string>>;
+  readonly panel_series: Readonly<Record<string, string>>;
   readonly normalized_samples: number;
   readonly pitches: readonly ViewerPitch[];
+  // 以下は打者の比較用データだけが書く。投手では書かない（Python 版との照合がキーまで見るため）
+  readonly subject?: Subject;
+  /** 「基準の瞬間に合わせる」の瞬間（省略時は release） */
+  readonly anchor_event?: string;
+  readonly anchor_label?: string;
+  readonly progress_label?: string;
+  readonly progress_hint?: string;
+  /** 目盛りに出す瞬間とその表示名 */
+  readonly event_labels?: Readonly<Record<string, string>>;
+  readonly arm_label?: string;
+  readonly trail_label?: string;
+  /** 「読み方」の座標と限界の段落（矢印の段落は共通で出す） */
+  readonly reading_notes?: readonly string[];
 }
 
-const round = (v: number, digits: number) => Math.round(v * 10 ** digits) / 10 ** digits;
-const jsonNumber = (v: number) => (Number.isFinite(v) ? round(v, 4) : null);
+export const round = (v: number, digits: number) => Math.round(v * 10 ** digits) / 10 ** digits;
+export const jsonNumber = (v: number) => (Number.isFinite(v) ? round(v, 4) : null);
 
 function referenceFrame(a: PitchAnalysis): { origin: Point; scale: number } {
   const scale = a.scalePx;
@@ -134,7 +169,7 @@ function interp(x: number, xp: readonly number[], fp: readonly number[], broken:
 /** 補間しない長さの欠損（前処理で埋めなかったもの） */
 const LONG_GAP_FRAMES = PREPROCESSING.maxGapFrames + 1;
 
-function normalizedFrames(frames: readonly ViewerFrame[]): ViewerPitch['normalized'] {
+export function normalizedFrames(frames: readonly ViewerFrame[]): ViewerPitch['normalized'] {
   const inside = frames.filter((fr) => fr.p !== null);
   if (inside.length < 2) return null;
   const grid = Array.from({ length: NORMALIZED_SAMPLES }, (_, i) => (i * 100) / (NORMALIZED_SAMPLES - 1));
