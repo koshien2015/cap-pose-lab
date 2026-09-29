@@ -5,6 +5,7 @@ import { COLORS, drawScene, VECTOR_COLORS } from './draw';
 import { presentationOf } from './presentation';
 import { ReadoutTable } from './ReadoutTable';
 import { ShiftControl } from './ShiftControl';
+import { SummaryTable } from './SummaryTable';
 import { ViewerSettings, type Settings } from './ViewerSettings';
 import {
   bounds as computeBounds, cursorOfFrame, cursorRange, defaultSync, jointNames, referenceMagnitude, shiftLimit, type ViewState,
@@ -137,6 +138,8 @@ export function ComparisonViewer({ payload }: { readonly payload: ViewerPayload 
           </figure>
         ))}
       </div>
+
+      <SummaryTable payload={payload} />
 
       <ReadoutTable payload={payload} cursor={cursor} state={state} joints={joints} />
 
