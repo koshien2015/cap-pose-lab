@@ -373,18 +373,21 @@ cap-pose-lab/
 - キーポイントの読み込み: `tracks.ts`
 - 追跡: `tracking/pitcherTracking.ts`（中身は「1人を追う」だけなので、そのまま使う）
 
-比較画面（`src/viewer/`）は、投手・打者に共通の1つにする。投手に固有の書き込み（足接地・リリース・投球腕）を、比較用のデータ（`ViewerPayload`）の側に移す。
+比較画面（`src/viewer/`）は、投手・打者に共通の1つにする。投手に固有の書き込み（足接地・リリース・投球腕）を、比較用のデータ（`ViewerPayload`）の側で上書きできるようにする。
+
+次の項目はどれも**省略できる**項目にし、打者の比較用データだけが書く。省略されたら比較画面は今の投手の表示にする。投手の比較用データは項目を増やさない（Python 版と一致を確かめるテストは、比較用データのキーまで照合するため）。
 
 - `subject`: `'pitcher' | 'batter'`
-- `anchor_event`: 揃える基準の瞬間の名前（投手 `release`、打者 `impact`）
-- `event_labels`: 目盛りに出す瞬間とその表示名（投手は今の4つ、打者は `top`・`impact`）
-- 各投球（各スイング）の `arm_joints` と `arm_label`: 対象の選択肢「投球腕」／「両手」が指す関節
-- 各投球（各スイング）の `trail_joints`: 軌跡を描く関節（投手は投球腕の手首と肘、打者は `hands`）
-- 各投球（各スイング）の `summary`: まとめの値（投手は空）
-- 各投球（各スイング）の `scale_mode`: 投手 `shoulder_width`、打者 `torso_length`
-- `reading_notes`: 「読み方」の文
+- `anchor_event`・`anchor_label`: 揃える基準の瞬間の名前と表示名（打者 `impact`・「インパクト」）
+- `progress_label`・`progress_hint`: 進行率の区間の表示名と、選べないときの案内
+- `arm_label`・`trail_label`: 対象の選択肢「両手」と、軌跡の表示の切り替えの文言
+- `event_labels`: 目盛りに出す瞬間とその表示名（打者は `top`・`impact`）
+- 各投球（各スイング）の `arm_joints`: 対象の選択肢「両手」が指す関節
+- 各投球（各スイング）の `trail_joints`: 軌跡を描く関節（打者は `hands`）
+- 各投球（各スイング）の `summary`: まとめの値
+- `reading_notes`: 「読み方」の座標と限界の段落（矢印の段落は共通）
 
-揃え方の `release` は `anchor` に改め、表示名は `anchor_event` から作る（投手は「リリースに合わせる」、打者は「インパクトに合わせる」）。
+打者の `scale_mode` は `torso_length`（既存の項目）。揃え方の内部の値は `release` のまま「基準の瞬間に合わせる」の意味で使い、表示名だけ `anchor_label` から作る（投手は「リリースに合わせる」、打者は「インパクトに合わせる」）。打者の比較用データの `throwing_hand`・`throwing_side` には打ち方（右打ちなら `right`）、`lead_side` には前の側、`batter_direction` には `right`（ホームベース側を右に揃えたあとのため）を入れる。
 
 ### 14.4 座標の揃え方
 
