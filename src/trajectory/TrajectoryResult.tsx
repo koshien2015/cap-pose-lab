@@ -73,21 +73,45 @@ function ResultCard({ analysis: a }: { readonly analysis: ThrowAnalysis }) {
   );
 }
 
+/** 検出した点は誤検出かどうかで分けず、すべて並べる（見た人が判断できるように） */
+function DetectionTable({ analysis: a }: { readonly analysis: ThrowAnalysis }) {
+  return (
+    <table className="w-full text-xs tabular-nums">
+      <thead>
+        <tr>
+          <th className="text-left">コマ</th>
+          <th className="text-right">横 (px)</th>
+          <th className="text-right">縦 (px)</th>
+          <th className="text-right">信頼度</th>
+        </tr>
+      </thead>
+      <tbody>
+        {a.detections.map((d) => (
+          <tr key={d.frame}>
+            <td>{d.frame}</td>
+            <td className="text-right">{d.x.toFixed(1)}</td>
+            <td className="text-right">{d.y.toFixed(1)}</td>
+            <td className="text-right">{d.conf.toFixed(2)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
 function Details({ run, analysis: a }: { readonly run: DetectRun; readonly analysis: ThrowAnalysis }) {
   const rows: [string, string][] = [
     ['キャップを検出したコマ', String(a.detections.length)],
-    ['軌跡に採用した点', String(a.fit?.inliers.length ?? 0)],
-    ['誤検出として除いた点', String(a.fit?.outliers.length ?? 0)],
-    ['フィットの残差', a.fit ? `${a.fit.rmse.toFixed(1)} px` : '—'],
     ['推論したコマ', `${run.records.length} / ${run.frameCount}`],
     ['1コマの推論時間', `${Math.round(run.msPerInference)} ms`],
   ];
   return (
-    <details className="text-sm">
+    <details className="space-y-2 text-sm">
       <summary className="min-h-11 cursor-pointer py-2">詳しい情報</summary>
       <dl className="grid grid-cols-2 gap-1">
         {rows.map(([k, v]) => [<dt key={`${k}-t`}>{k}</dt>, <dd key={`${k}-d`}>{v}</dd>])}
       </dl>
+      <DetectionTable analysis={a} />
     </details>
   );
 }

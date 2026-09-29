@@ -41,7 +41,7 @@
     "imgsz": 1280,
     "sizeMB": 84.3,
     "precision": "fp32",
-    "preprocess": "raw",
+    "preprocess": "enhanced",
     "output": "yolo26-end2end",
     "classes": [
       "cap",

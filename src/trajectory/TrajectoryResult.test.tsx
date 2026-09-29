@@ -63,6 +63,15 @@ describe('TrajectoryResult', () => {
     );
   });
 
+  it('検出した点は誤検出かどうかで分けず、すべて一覧に出す', () => {
+    const records = syntheticThrow({ outliers: [110, 118], capInHand: [90] });
+    render(<TrajectoryResult run={makeRun(records)} model={model} onExit={() => undefined} />);
+    expect(screen.queryByText(/誤検出/)).toBeNull();
+    const rows = screen.getAllByRole('row').slice(1); // 見出しの行を除く
+    const detected = records.filter((r) => r.cap !== null).map((r) => String(r.frame));
+    expect(rows.map((r) => r.querySelector('td')?.textContent)).toEqual(detected);
+  });
+
   it('「最初に戻る」で抜けられる', async () => {
     const onExit = vi.fn();
     render(<TrajectoryResult run={makeRun()} model={model} onExit={onExit} />);

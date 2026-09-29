@@ -2,7 +2,8 @@
 
     SHARED_ROOT=<ultralytics のフォーク>/shared <その venv の python> tools/compare_trajectory.py 動画.mp4 --browser 動画_trajectory.json
 
-- 全コマを元のフレームのまま（raw）推論する。重み・入力サイズは manifest の capDetector、信頼度は 0.15
+- 全コマを推論する。重み・入力サイズ・前処理（raw / enhanced）は manifest の capDetector、信頼度は 0.15
+  enhanced は tennis.py と同じ3コマ差分の強調を元の解像度でかける（先頭は prev = cur、末尾のコマは推論しない）
 - ブラウザ版が推論したコマだけを突き合わせ、検出の一致と位置の差を出す
 - 球速は、ブラウザ版と同じリリースのコマと同じ閾値（画面の高さ × 0.015）で、Python の trajectory_fitter から出す
 - OpenCV は回転メタデータを反映して読む（縦動画も表示の向きの座標になる）
@@ -33,24 +34,47 @@ CONF = 0.15
 THRESHOLD_RATIO = 0.015
 
 
-def detect_all(video: str, model: YOLO, imgsz: int) -> tuple[dict[int, tuple[float, float]], float, int]:
-    cap_id = next(i for i, name in model.names.items() if name == "cap")
+GAMMA_LUT = np.array([((i / 255.0) ** (1.0 / 1.5)) * 255 for i in range(256)]).astype("uint8")
+
+
+def enhance(prev: np.ndarray, cur: np.ndarray, nxt: np.ndarray) -> np.ndarray:
+    """tennis.run のループ本体と同じ演算。"""
+    diff = cv2.bitwise_and(cv2.absdiff(cur, prev), cv2.absdiff(nxt, cur))
+    return cv2.addWeighted(cur, 0.4, cv2.LUT(diff, GAMMA_LUT), 0.6, 0)
+
+
+def read_frames(video: str) -> tuple[list[np.ndarray], float]:
     capture = cv2.VideoCapture(video)
     fps = capture.get(cv2.CAP_PROP_FPS)
-    found: dict[int, tuple[float, float]] = {}
-    index, height = 0, 0
+    frames = []
     while True:
         ok, frame = capture.read()
         if not ok:
             break
-        height = frame.shape[0]
-        boxes = model(frame, imgsz=imgsz, conf=CONF, verbose=False)[0].boxes
+        frames.append(frame)
+    capture.release()
+    return frames, fps
+
+
+def model_inputs(frames: list[np.ndarray], preprocess: str):
+    if preprocess != "enhanced":
+        yield from enumerate(frames)
+        return
+    for index in range(len(frames) - 1):  # 末尾のコマは推論しない
+        yield index, enhance(frames[max(index - 1, 0)], frames[index], frames[index + 1])
+
+
+def detect_all(video: str, model: YOLO, imgsz: int, preprocess: str) -> tuple[dict[int, tuple[float, float]], float, int]:
+    cap_id = next(i for i, name in model.names.items() if name == "cap")
+    frames, fps = read_frames(video)
+    found: dict[int, tuple[float, float]] = {}
+    height = frames[0].shape[0] if frames else 0
+    for index, image in model_inputs(frames, preprocess):
+        boxes = model(image, imgsz=imgsz, conf=CONF, verbose=False)[0].boxes
         caps = [(float(b.conf[0]), b.xyxy[0].tolist()) for b in boxes if int(b.cls[0]) == cap_id]
         if caps:
             _, (x1, y1, x2, y2) = max(caps, key=lambda c: c[0])
             found[index] = ((x1 + x2) / 2, (y1 + y2) / 2)
-        index += 1
-    capture.release()
     return found, fps, height
 
 
@@ -85,8 +109,8 @@ def main() -> int:
     args = parser.parse_args()
     detector = json.loads((ROOT / "public" / "models" / "manifest.json").read_text(encoding="utf-8"))["capDetector"]
     model = YOLO(str(ROOT / "tools" / "weights" / detector["weights"]))  # export_models.py が取得済みのもの
-    found, fps, height = detect_all(args.video, model, detector["imgsz"])
-    print(f"fps {fps:.2f} / 高さ {height}px / キャップを検出したコマ {len(found)}")
+    found, fps, height = detect_all(args.video, model, detector["imgsz"], detector["preprocess"])
+    print(f"前処理 {detector['preprocess']} / fps {fps:.2f} / 高さ {height}px / キャップを検出したコマ {len(found)}")
     browser = json.loads(Path(args.browser).read_text(encoding="utf-8")) if args.browser else None
     speed = python_speed(found, fps, height, browser["release"]["frame"] if browser else None)
     print(f"球速: Python {None if speed is None else round(speed, 1)} km/h" + (f" / ブラウザ {browser['speedKmh']} km/h" if browser else ""))

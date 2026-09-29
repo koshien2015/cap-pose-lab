@@ -25,7 +25,7 @@ describe('parseManifest', () => {
   it('キャップ検出モデルを読める', () => {
     const m = parseManifest(manifestJson);
     expect(m.capDetector.imgsz).toBe(1280);
-    expect(m.capDetector.preprocess).toBe('raw');
+    expect(m.capDetector.preprocess).toBe('enhanced');
     expect(m.capDetector.output).toBe('yolo26-end2end');
     expect(m.capDetector.precision).toBe('fp32');
     expect(m.capDetector.classes[0]).toBe('cap');
