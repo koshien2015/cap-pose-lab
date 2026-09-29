@@ -1,21 +1,22 @@
 import { useState } from 'react';
 
-import type { PoseJsonInput } from '../analysis/types';
+import type { PoseJsonInput, Subject } from '../analysis/types';
 import { parsePoseFile } from '../flow/compare';
 
 interface Props {
   readonly onLoad: (files: { name: string; json: PoseJsonInput }[]) => void;
+  readonly subject: Subject;
 }
 
 /** 以前このサイトで保存した _pose.json を読み込む（最大2つ） */
-export function PoseFileLoader({ onLoad }: Props) {
+export function PoseFileLoader({ onLoad, subject }: Props) {
   const [problems, setProblems] = useState<string[]>([]);
 
   const onPick = async (files: File[]) => {
     const results = await Promise.all(
       files.slice(0, 2).map(async (file) => {
         try {
-          return { name: file.name, json: parsePoseFile(await file.text()) };
+          return { name: file.name, json: parsePoseFile(await file.text(), subject) };
         } catch (error) {
           return { name: file.name, problem: error instanceof Error ? error.message : String(error) };
         }

@@ -1,10 +1,13 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
 import pair from '../analysis/__fixtures__/pair.json';
 import { loadFixture } from '../analysis/fixtures';
 import type { ViewerPayload } from '../analysis/payload';
+import { analyzeSwing } from '../batting/analyzeSwing';
+import { buildSwingPayload } from '../batting/swingPayload';
+import { syntheticSwing } from '../batting/syntheticSwing';
 import { ComparisonViewer } from './ComparisonViewer';
 
 const payload = pair.payload as unknown as ViewerPayload;
@@ -53,5 +56,97 @@ describe('ComparisonViewer のコマ送り', () => {
     next.click();
     await screen.findByRole('slider', { name: 'コマ' });
     expect(Number(slider.value)).toBe(before + 3);
+  });
+});
+
+const batterLike: ViewerPayload = {
+  ...payload,
+  anchor_label: 'インパクト',
+  progress_label: 'トップ→インパクト',
+  progress_hint: '「進行率」は、トップとインパクトを指定すると選べます。',
+  event_labels: { release: 'インパクト' },
+  arm_label: '両手',
+  trail_label: '手の通り道を表示する',
+  reading_notes: ['座標は胴の長さを 1 とした値です。'],
+};
+
+describe('ComparisonViewer の文言', () => {
+  it('比較用データに書かれた文言で表示する（打者）', () => {
+    render(<ComparisonViewer payload={batterLike} />);
+    expect(screen.getByRole('option', { name: 'インパクトに合わせる' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: '進行率（トップ→インパクト）' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: '両手' })).toBeInTheDocument();
+    expect(screen.getByText('手の通り道を表示する')).toBeInTheDocument();
+    expect(screen.getByText('座標は胴の長さを 1 とした値です。')).toBeInTheDocument();
+    expect(screen.getByText(/力そのものではありません/)).toBeInTheDocument();
+  });
+
+  it('書かれていなければ投手の文言のまま', () => {
+    render(<ComparisonViewer payload={payload} />);
+    expect(screen.getByRole('option', { name: 'リリースに合わせる' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: '投げる腕' })).toBeInTheDocument();
+    expect(screen.getByText('腕の通り道を表示する')).toBeInTheDocument();
+  });
+});
+
+describe('2本目をずらす', () => {
+  const frameRow = () => within(screen.getAllByRole('table').at(-1)!).getByText('フレーム').closest('tr')!;
+
+  it('ボタンで1コマずつずらせて、0に戻せる。2本目の表示コマも変わる', async () => {
+    render(<ComparisonViewer payload={payload} />);
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'そろえ方' }), 'frame');
+    const second = () => frameRow().querySelectorAll('td')[2].textContent;
+    expect(second()).toBe(String(payload.pitches[1].frames[0].f));
+    await userEvent.click(screen.getByRole('button', { name: '2本目を1コマ後ろへ' }));
+    expect(screen.getByText('+1 コマ')).toBeInTheDocument();
+    expect(second()).toBe('—');
+    await userEvent.click(screen.getByRole('button', { name: '0に戻す' }));
+    expect(screen.getByText('0 コマ')).toBeInTheDocument();
+    expect(second()).toBe(String(payload.pitches[1].frames[0].f));
+  });
+
+  it('範囲の端より先へはずらさない', async () => {
+    render(<ComparisonViewer payload={payload} />);
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'そろえ方' }), 'frame');
+    const limit = Math.max(...payload.pitches.map((p) => p.frames.length));
+    fireEvent.change(screen.getByRole('slider', { name: '2本目のずれ' }), { target: { value: String(limit) } });
+    await userEvent.click(screen.getByRole('button', { name: '2本目を1コマ後ろへ' }));
+    expect(screen.getByText(`+${limit} コマ`)).toBeInTheDocument();
+  });
+
+  it('進行率でそろえているときは出さない', () => {
+    render(<ComparisonViewer payload={payload} />);
+    expect(screen.queryByRole('button', { name: '2本目を1コマ後ろへ' })).toBeNull();
+  });
+
+  it('1本だけのときは出さない', () => {
+    const one = loadFixture('no_events').expected.payload as unknown as ViewerPayload;
+    render(<ComparisonViewer payload={one} />);
+    expect(screen.queryByRole('button', { name: '2本目を1コマ後ろへ' })).toBeNull();
+  });
+});
+
+describe('打者の比較画面', () => {
+  const swing = (impactFrame: number | null) =>
+    analyzeSwing(syntheticSwing({ bats: 'right', headDx: (f) => 0.002 * f }), {
+      swingId: `s${impactFrame}`, label: '', bats: 'right', fps: 60, topFrame: null, impactFrame,
+    });
+
+  it('インパクトが無い1本があると「インパクトに合わせる」を選べず、理由を出す', () => {
+    render(<ComparisonViewer payload={buildSwingPayload([swing(40), swing(null)])} />);
+    expect((screen.getByRole('option', { name: 'インパクトに合わせる' }) as HTMLOptionElement).disabled).toBe(true);
+    expect((screen.getByRole('combobox', { name: 'そろえ方' }) as HTMLSelectElement).value).toBe('frame');
+    expect(screen.getByText(/2本ともインパクトを指定すると選べます/)).toBeInTheDocument();
+  });
+
+  it('コマごとの値は小数2桁で出す（胴の長さ単位の小さな動きが 0.0 に丸まらない）', () => {
+    render(<ComparisonViewer payload={buildSwingPayload([swing(40), swing(40)])} />);
+    const row = within(screen.getAllByRole('table').at(-1)!).getByText('手の高さ').closest('tr')!;
+    expect(row.querySelectorAll('td')[1].textContent).toMatch(/^\d+\.\d{2}$/);
+  });
+
+  it('2本目をずらす操作は、画面下の再生バーの外に置く（スマホで画面を覆わない）', async () => {
+    render(<ComparisonViewer payload={buildSwingPayload([swing(40), swing(40)])} />);
+    expect(screen.getByRole('slider', { name: '2本目のずれ' }).closest('.fixed')).toBeNull();
   });
 });

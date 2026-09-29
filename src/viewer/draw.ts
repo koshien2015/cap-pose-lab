@@ -3,7 +3,7 @@
  */
 
 import type { ViewerPayload, XY } from '../analysis/payload';
-import { type Bounds, frameAt, indexFor, sequence, targetNames, vectorAt, type ViewState } from './viewerMath';
+import { type Bounds, frameAt, indexFor, pitchCursor, sequence, targetNames, vectorAt, type ViewState } from './viewerMath';
 
 export const COLORS = ['#BFE9F2', '#FFB23E'] as const;
 /** ベクトルは骨格と見分けやすいよう、色相を最も離した色にする */
@@ -58,7 +58,8 @@ function drawTrail(ctx: CanvasRenderingContext2D, p: Projector, payload: ViewerP
   ctx.globalAlpha = 0.45;
   ctx.strokeStyle = color;
   ctx.lineWidth = 1;
-  [`${pitch.throwing_side}_wrist`, `${pitch.throwing_side}_elbow`].forEach((name) => {
+  const names = pitch.trail_joints ?? [`${pitch.throwing_side}_wrist`, `${pitch.throwing_side}_elbow`];
+  names.forEach((name) => {
     ctx.beginPath();
     let started = false;
     for (let i = 0; i <= Math.min(at, list.length - 1); i += 1) {
@@ -135,16 +136,17 @@ export function drawScene(canvas: HTMLCanvasElement, o: SceneOptions): void {
 
   o.pitchIndexes.forEach((index) => {
     const pitch = o.payload.pitches[index];
-    const frame = frameAt(pitch, o.cursor, o.state);
+    const cursor = pitchCursor(o.cursor, index, o.state);
+    const frame = frameAt(pitch, cursor, o.state);
     if (!frame) return;
-    if (o.trail) drawTrail(ctx, p, o.payload, index, o.cursor, o.state, COLORS[index]);
+    if (o.trail) drawTrail(ctx, p, o.payload, index, cursor, o.state, COLORS[index]);
     drawStickFigure(ctx, p, frame.k, o.payload.edges, COLORS[index], o.pitchIndexes.length > 1 ? 0.85 : 1);
     if (o.state.vector === 'none') return;
     // 代表値が身体長 0.5 になるようそろえてから、倍率を掛ける
     const gain = (o.arrowScale * 0.5) / o.reference;
     targetNames(pitch, o.state, o.joints).forEach((name) => {
       const point = frame.k[name];
-      const v = vectorAt(pitch, o.cursor, name, o.state);
+      const v = vectorAt(pitch, cursor, name, o.state);
       if (!point || !v) return;
       let dx = v[0] * gain;
       let dy = v[1] * gain;

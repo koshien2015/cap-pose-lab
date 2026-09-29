@@ -2,9 +2,12 @@
  * 解析で使う型。欠損は NaN（Python 版の NaN と同じ扱い）。
  */
 
+/** 解析の対象（投手のフォーム比較 / 打者のスイング比較） */
+export type Subject = 'pitcher' | 'batter';
+
 /** 解析に渡す姿勢データ（pose.json SCHEMA_VERSION 1。キーポイント名は問わない） */
 export interface PoseJsonInput {
-  readonly meta: { readonly fps: number; readonly pitch_id: string };
+  readonly meta: { readonly fps: number; readonly pitch_id: string; readonly subject?: Subject };
   readonly frames: readonly {
     readonly frame_index: number;
     readonly timestamp_sec: number;

@@ -5,7 +5,7 @@
  * 座標は「身体サイズを1」とした値で、X は打者方向が正、Y は上が正。
  */
 
-import type { ViewerFrame, ViewerPayload, ViewerPitch, XY } from '../analysis/payload';
+import type { SummaryItem, ViewerFrame, ViewerPayload, ViewerPitch, XY } from '../analysis/payload';
 
 export type SyncMode = 'progress' | 'release' | 'frame';
 export type VectorMode = 'none' | 'velocity' | 'accel';
@@ -13,8 +13,12 @@ export type VectorMode = 'none' | 'velocity' | 'accel';
 export interface ViewState {
   readonly sync: SyncMode;
   readonly vector: VectorMode;
-  /** '__all__'（全関節）/ '__arm__'（投球腕）/ 関節名 */
+  /** '__all__'（全関節）/ '__arm__'（投球腕。打者は両手）/ 関節名 */
   readonly target: string;
+  /** 'release'（基準の瞬間に合わせる）で使う瞬間の名前（省略時は release） */
+  readonly anchorEvent?: string;
+  /** 2本目をずらすコマ数（+n で2本目が n コマ後ろにずれる。進行率では効かない） */
+  readonly shift?: number;
 }
 
 /** 実フレーム（f あり）か、進行率で並べ直したコマ（f なし） */
@@ -25,6 +29,7 @@ const JOINT_LABELS: Readonly<Record<string, string>> = {
   left_shoulder: '左肩', right_shoulder: '右肩', left_elbow: '左肘', right_elbow: '右肘',
   left_wrist: '左手首', right_wrist: '右手首', left_hip: '左腰', right_hip: '右腰',
   left_knee: '左膝', right_knee: '右膝', left_ankle: '左足首', right_ankle: '右足首',
+  hands: '両手',
 };
 
 /** 画面に出す関節名（内部名は出さない） */
@@ -32,8 +37,19 @@ export function jointLabel(name: string): string {
   return JOINT_LABELS[name] ?? name;
 }
 
+/**
+ * 「基準の瞬間に合わせる」が使えるか。打者は全部の動画にインパクトが指定されているときだけ使える
+ * （無い動画を先頭で合わせると、揃っていないのに揃って見えるため）。投手（anchor_event なし）は今のまま使える
+ */
+export function anchorAvailable(payload: ViewerPayload): boolean {
+  const event = payload.anchor_event;
+  if (event === undefined) return true;
+  return payload.pitches.every((p) => p.events[event]?.frame !== null && p.events[event]?.frame !== undefined);
+}
+
 export function defaultSync(payload: ViewerPayload): SyncMode {
-  return payload.pitches.some((p) => !p.normalized) ? 'release' : 'progress';
+  if (payload.pitches.every((p) => p.normalized)) return 'progress';
+  return anchorAvailable(payload) ? 'release' : 'frame';
 }
 
 export function jointNames(payload: ViewerPayload): string[] {
@@ -46,31 +62,44 @@ export function sequence(pitch: ViewerPitch, s: ViewState): readonly Frameish[] 
   return s.sync === 'progress' && pitch.normalized ? pitch.normalized : pitch.frames;
 }
 
+/** リリースの位置（リリースが無ければ先頭） */
 export function anchorIndex(pitch: ViewerPitch): number {
-  const frame = pitch.events.release?.frame;
+  return anchorIndexFor(pitch, 'release');
+}
+
+/** 基準の瞬間の位置（その瞬間が無ければ先頭） */
+export function anchorIndexFor(pitch: ViewerPitch, event: string): number {
+  const frame = pitch.events[event]?.frame;
   if (frame === null || frame === undefined) return 0;
   const index = pitch.frames.findIndex((f) => f.f === frame);
   return index < 0 ? 0 : index;
 }
 
+/** その投球をずらすコマ数（1本目と進行率ではずらさない） */
+const shiftOf = (pitchIndex: number, s: ViewState) => (s.sync === 'progress' || pitchIndex === 0 ? 0 : (s.shift ?? 0));
+
+/** 画面のカーソル位置を、その投球の中の位置にする（2本目はずらした分だけ戻す） */
+export function pitchCursor(cursor: number, pitchIndex: number, s: ViewState): number {
+  return cursor - shiftOf(pitchIndex, s);
+}
+
+/** ずらせる幅（± 長いほうの動画のコマ数） */
+export function shiftLimit(payload: ViewerPayload): number {
+  return Math.max(...payload.pitches.map((p) => p.frames.length));
+}
+
 export function cursorRange(payload: ViewerPayload, s: ViewState): { min: number; max: number } {
   if (s.sync === 'progress') return { min: 0, max: payload.normalized_samples - 1 };
-  if (s.sync === 'release') {
-    let before = 0;
-    let after = 0;
-    payload.pitches.forEach((p) => {
-      const anchor = anchorIndex(p);
-      before = Math.max(before, anchor);
-      after = Math.max(after, p.frames.length - 1 - anchor);
-    });
-    return { min: -before, max: after };
-  }
-  return { min: 0, max: Math.max(...payload.pitches.map((p) => p.frames.length)) - 1 };
+  const spans = payload.pitches.map((p, i) => {
+    const start = (s.sync === 'release' ? -anchorIndexFor(p, s.anchorEvent ?? 'release') : 0) + shiftOf(i, s);
+    return { min: start, max: start + p.frames.length - 1 };
+  });
+  return { min: Math.min(...spans.map((r) => r.min)), max: Math.max(...spans.map((r) => r.max)) };
 }
 
 export function indexFor(pitch: ViewerPitch, cursor: number, s: ViewState): number | null {
   if (s.sync === 'progress') return pitch.normalized ? cursor : null;
-  if (s.sync === 'release') return anchorIndex(pitch) + cursor;
+  if (s.sync === 'release') return anchorIndexFor(pitch, s.anchorEvent ?? 'release') + cursor;
   return cursor;
 }
 
@@ -126,7 +155,9 @@ export function vectorAt(pitch: ViewerPitch, cursor: number, name: string, s: Vi
 }
 
 /** 矢印の基準になる大きさ（全フレーム・全関節の上位10%）。重いので呼び出し側で覚えておく */
-export function referenceMagnitude(payload: ViewerPayload, s: ViewState): number {
+export function referenceMagnitude(payload: ViewerPayload, state: ViewState): number {
+  // ずらしで矢印の基準が変わらないよう、ずらしを外して計算する
+  const s: ViewState = { ...state, shift: 0 };
   const joints = jointNames(payload);
   const range = cursorRange(payload, s);
   const magnitudes: number[] = [];
@@ -148,6 +179,7 @@ export function referenceMagnitude(payload: ViewerPayload, s: ViewState): number
 export function targetNames(pitch: ViewerPitch, s: ViewState, joints: readonly string[]): readonly string[] {
   if (s.target === '__all__') return joints;
   if (s.target === '__arm__') {
+    if (pitch.arm_joints) return pitch.arm_joints;
     const side = pitch.throwing_side;
     return [`${side}_shoulder`, `${side}_elbow`, `${side}_wrist`];
   }
@@ -181,12 +213,12 @@ export function bounds(payload: ViewerPayload): Bounds {
   return { minX: minX - padX, maxX: maxX + padX, minY: minY - padY, maxY: maxY + padY };
 }
 
-/** イベントの目盛りを置くカーソル位置 */
-export function cursorOfFrame(pitch: ViewerPitch, frame: number, s: ViewState, samples: number): number | null {
+/** イベントの目盛りを置くカーソル位置（2本目はずらした分も足す） */
+export function cursorOfFrame(pitch: ViewerPitch, frame: number, s: ViewState, samples: number, pitchIndex = 0): number | null {
   const index = pitch.frames.findIndex((f) => f.f === frame);
   if (index < 0) return null;
-  if (s.sync === 'release') return index - anchorIndex(pitch);
-  if (s.sync === 'frame') return index;
+  if (s.sync === 'release') return index - anchorIndexFor(pitch, s.anchorEvent ?? 'release') + shiftOf(pitchIndex, s);
+  if (s.sync === 'frame') return index + shiftOf(pitchIndex, s);
   const progress = pitch.frames[index].p;
   if (progress === null || !pitch.normalized) return null;
   return Math.round((progress / 100) * (samples - 1));
@@ -210,4 +242,11 @@ export function diffText(values: readonly (number | null)[], format: (v: number)
   if (values.length < 2 || values[0] === null || values[1] === null) return '';
   const difference = values[0] - values[1];
   return (difference > 0 ? '+' : '') + format(difference);
+}
+
+/** まとめの値と単位（出せなければ「—」） */
+export function formatSummaryValue(item: SummaryItem): string {
+  if (item.value === null) return '—';
+  const number = item.value.toFixed(item.digits);
+  return `${item.signed && item.value > 0 ? '+' : ''}${number}${item.unit}`;
 }

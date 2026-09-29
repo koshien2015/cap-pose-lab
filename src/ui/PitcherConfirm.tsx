@@ -8,9 +8,11 @@ interface Props {
   readonly run: PoseRun;
   readonly track: readonly (Person | null)[];
   readonly onPick: (frame: number, index: number) => void;
+  /** 選ぶ人の呼び名 */
+  readonly who?: '投手' | '打者';
 }
 
-export function PitcherConfirm({ run, track, onPick }: Props) {
+export function PitcherConfirm({ run, track, onPick, who = '投手' }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stride = run.thumbStride;
   // 縮小画像のあるコマ（stride おき）だけを表示できる
@@ -46,7 +48,7 @@ export function PitcherConfirm({ run, track, onPick }: Props) {
   return (
     <section className="space-y-2">
       <p className="font-bold break-all">{run.fileName}</p>
-      <p className="text-sm">青い枠が投手です。違う場合は投手をタップしてください。</p>
+      <p className="text-sm">青い枠が{who}です。違う場合は{who}をタップしてください。</p>
       <canvas ref={canvasRef} onPointerUp={onTap} className="w-full touch-manipulation rounded-xl" />
       <input
         type="range"
@@ -58,7 +60,7 @@ export function PitcherConfirm({ run, track, onPick }: Props) {
         aria-label="表示するコマ"
         className="h-11 w-full"
       />
-      {!pitcher && <p className="text-sm">このコマでは投手が見つかっていません。コマを動かすか、投手をタップしてください。</p>}
+      {!pitcher && <p className="text-sm">このコマでは{who}が見つかっていません。コマを動かすか、{who}をタップしてください。</p>}
     </section>
   );
 }

@@ -1,10 +1,14 @@
 export function StartScreen({
   onStart,
   onLoadSaved,
+  onBatter,
+  onLoadSavedBatter,
   onTrajectory,
 }: {
   readonly onStart: () => void;
   readonly onLoadSaved: () => void;
+  readonly onBatter: () => void;
+  readonly onLoadSavedBatter: () => void;
   readonly onTrajectory: () => void;
 }) {
   return (
@@ -20,6 +24,14 @@ export function StartScreen({
       </button>
       <button type="button" onClick={onLoadSaved} className="w-full min-h-11 rounded-xl border border-current/40">
         保存した解析結果で比べる
+      </button>
+      <hr className="border-current/20" />
+      <p className="text-sm">捕手の後ろから撮った打者のスイングを2本比べます。構えから撮り始めてください（60fps 以上がおすすめ）。</p>
+      <button type="button" onClick={onBatter} className="w-full min-h-11 rounded-xl border border-current/40">
+        打者のスイングを比べる
+      </button>
+      <button type="button" onClick={onLoadSavedBatter} className="w-full min-h-11 rounded-xl border border-current/40">
+        保存した打者の結果で比べる
       </button>
       <hr className="border-current/20" />
       <p className="text-sm">投手の後ろから撮った1球分の動画で、キャップの軌跡と平均球速を推定します（試験的）。</p>
