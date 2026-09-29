@@ -18,6 +18,17 @@ export interface TrajectoryRunInput {
   readonly onProgress: (p: ProgressState) => void;
 }
 
+/**
+ * 1コマも読めなかった（表示の大きさが決まらない）ときは、動画を読めなかったエラーにする。
+ * そのまま結果画面に渡すと軌跡の計算が例外になり、画面全体が止まるため。
+ */
+export function assertDecoded(run: DetectRun): DetectRun {
+  if (!(run.width > 0 && run.height > 0)) {
+    throw new Error('デコードに失敗しました: 動画から1コマも読み出せませんでした');
+  }
+  return run;
+}
+
 export async function runTrajectory({ video, fileName, detector, ep, signal, onProgress }: TrajectoryRunInput): Promise<DetectRun> {
   const bytes = await fetchModel(
     modelUrl(detector),
@@ -36,7 +47,7 @@ export async function runTrajectory({ video, fileName, detector, ep, signal, onP
       onProgress: (d, t, eta) => onProgress({ label: `キャップを探しています${note}`, done: d, total: t, eta: formatDuration(eta) }),
     });
     saveMeasuredSpeed('capDetect', prepared.ep, run.msPerInference);
-    return run;
+    return assertDecoded(run);
   } finally {
     await prepared.loaded.session.release();
   }

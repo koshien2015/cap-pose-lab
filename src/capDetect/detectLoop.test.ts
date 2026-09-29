@@ -60,6 +60,20 @@ describe('runDetectLoop', () => {
     expect(order).toEqual([0, 5, 10, 11]);
   });
 
+  it('画像は上限の枚数までしか持たず、キャップの写ったコマを優先して残す', async () => {
+    const t = tracker();
+    const result = await runDetectLoop(framesOf(100), {
+      detect: fakeDetect(new Set([3, 50]), []),
+      disposeImage: t.disposeImage,
+      gate: { searchStride: 1, denseFrames: 0, lookback: 0 },
+      maxImages: 10,
+    });
+    expect(result.records).toHaveLength(100);
+    expect(result.images).toHaveLength(10);
+    expect(result.images.map((i) => i.frame)).toEqual(expect.arrayContaining([3, 50]));
+    expect(t.disposed).toHaveLength(90);
+  });
+
   it('中止したら、それまでに受け取った画像をすべて閉じて止まる', async () => {
     const controller = new AbortController();
     const t = tracker();

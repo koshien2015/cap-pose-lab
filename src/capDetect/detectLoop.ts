@@ -34,6 +34,29 @@ export interface DetectLoopDeps<I, M> {
   readonly disposeImage: (image: M) => void;
   readonly gate?: GateConfig;
   readonly signal?: AbortSignal;
+  /** 残す画像の上限（既定 DEFAULT_MAX_IMAGES） */
+  readonly maxImages?: number;
+}
+
+/** 残す画像の上限。姿勢推定の縮小画像（frameCanvas.ts の MAX_THUMBNAILS）と同じ 320x180 x 300 枚 ≒ 69MB に抑える */
+export const DEFAULT_MAX_IMAGES = 300;
+
+/**
+ * 上限を超えたら1枚手放す。キャップが写っていない（推論済みの）コマのうち最も古いものから手放し、
+ * 無ければ最も古いものを手放す。検出が続く動画（捕球後に止まったキャップなど）でもメモリが増え続けないようにする。
+ */
+function trimImages<M>(
+  images: readonly FrameImage<M>[],
+  records: readonly FrameRecord[],
+  max: number,
+  dispose: (image: M) => void,
+): FrameImage<M>[] {
+  if (images.length <= max) return [...images];
+  const withoutCap = new Set(records.filter((r) => r.cap === null).map((r) => r.frame));
+  const found = images.findIndex((im) => withoutCap.has(im.frame));
+  const drop = found >= 0 ? found : 0;
+  dispose(images[drop].image);
+  return images.filter((_, i) => i !== drop);
 }
 
 const byFrame = <T extends { frame: number }>(items: readonly T[]) => [...items].sort((a, b) => a.frame - b.frame);
@@ -43,14 +66,16 @@ export async function runDetectLoop<I, M>(
   deps: DetectLoopDeps<I, M>,
 ): Promise<{ records: FrameRecord[]; images: FrameImage<M>[] }> {
   const config = deps.gate ?? DEFAULT_GATE;
+  const maxImages = deps.maxImages ?? DEFAULT_MAX_IMAGES;
   const records: FrameRecord[] = [];
-  const images: FrameImage<M>[] = [];
+  let images: FrameImage<M>[] = [];
   let held: LoopFrame<I, M>[] = [];
   let gate = INITIAL_GATE;
   const infer = async (f: LoopFrame<I, M>) => {
-    images.push({ frame: f.index, image: f.image }); // 先に持ち主を移す（推論が失敗しても閉じられるように）
+    images = [...images, { frame: f.index, image: f.image }]; // 先に持ち主を移す（推論が失敗しても閉じられるように）
     const record = await deps.detect(f.index, f.input);
     records.push(record);
+    images = trimImages(images, records, maxImages, deps.disposeImage);
     return record;
   };
   try {
