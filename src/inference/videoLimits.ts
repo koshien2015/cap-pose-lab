@@ -4,8 +4,8 @@
 
 import type { VideoInfo } from './videoSource';
 
-export const MAX_DURATION_SEC = 20;
-export const MAX_FRAMES = 1200;
+export const MAX_DURATION_SEC = 40;
+export const MAX_FRAMES = 2400;
 /** 読み込み時に一時的にファイルの約2倍のメモリを使うため、読み込む前にこの大きさで断る */
 export const MAX_FILE_MB = 200;
 
