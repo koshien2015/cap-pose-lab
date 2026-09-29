@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { expectClose } from '../analysis/fixtures';
 import { computeLetterbox } from '../inference/letterbox';
-import { decodeDetections, nonMaxSuppression } from './decodeDetect';
+import { decodeDetections, decodeEnd2End, decodeOutput, nonMaxSuppression } from './decodeDetect';
 import { loadCapFixture } from './fixtures';
 
 interface NmsFixture {
@@ -81,5 +81,42 @@ describe('decodeDetections', () => {
     const out = makeOutput(1, [{ cx: 192, cy: 320, w: 10, h: 10, scores: { 0: 0.5 } }]);
     const [d] = decodeDetections(out, 1, lb);
     expectClose([...d.box], [525, 945, 555, 975], 1e-6);
+  });
+});
+
+/** end2end の出力 [300][6]（x1, y1, x2, y2, score, cls）。足りない行は 0 で埋める */
+function end2endOutput(rows: readonly (readonly number[])[]): Float32Array {
+  const out = new Float32Array(300 * 6);
+  rows.forEach((r, i) => out.set(r, i * 6));
+  return out;
+}
+
+describe('decodeEnd2End', () => {
+  const lb = computeLetterbox(1920, 1080, 1280); // 1280x720 → 縦を 736 まで埋める（上に 8）
+
+  it('信頼度が閾値より大きい行だけを、NMS をかけずに表示座標へ戻す', () => {
+    const out = end2endOutput([
+      [100, 108, 110, 118, 0.9, 0],
+      [100, 108, 111, 118, 0.8, 0], // 重なっていても end2end なので消さない
+      [0, 8, 10, 18, 0.15, 1], // 閾値ちょうどは採らない
+      [0, 8, 5, 13, 0.1, 2],
+    ]);
+    const got = decodeEnd2End(out, lb);
+    expect(got.map((d) => d.cls)).toEqual([0, 0]);
+    expectClose([...got[0].box], [150, 150, 165, 165], 1e-4);
+  });
+
+  it('行の長さが 6 の倍数でなければ例外にする', () => {
+    expect(() => decodeEnd2End(new Float32Array(7), lb)).toThrow('6 の倍数');
+  });
+});
+
+describe('decodeOutput', () => {
+  it('manifest の出力形式で解読のしかたを切り替える', () => {
+    const lb = computeLetterbox(640, 640, 640);
+    const end2end = end2endOutput([[10, 10, 20, 20, 0.5, 3]]);
+    expect(decodeOutput(end2end, 'yolo26-end2end', 11, lb).map((d) => d.cls)).toEqual([3]);
+    const raw = makeOutput(2, [{ cx: 15, cy: 15, w: 10, h: 10, scores: { 1: 0.5 } }]);
+    expect(decodeOutput(raw, 'yolov8-raw', 2, lb).map((d) => d.cls)).toEqual([1]);
   });
 });

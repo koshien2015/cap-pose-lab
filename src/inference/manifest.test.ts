@@ -24,9 +24,18 @@ describe('parseManifest', () => {
 
   it('キャップ検出モデルを読める', () => {
     const m = parseManifest(manifestJson);
-    expect(m.capDetector.imgsz).toBe(640);
+    expect(m.capDetector.imgsz).toBe(1280);
     expect(m.capDetector.preprocess).toBe('raw');
+    expect(m.capDetector.output).toBe('yolo26-end2end');
+    expect(m.capDetector.precision).toBe('fp32');
     expect(m.capDetector.classes[0]).toBe('cap');
+  });
+
+  it('出力の形式や精度が未知なら例外にする', () => {
+    const badOutput = { ...manifestJson, capDetector: { ...manifestJson.capDetector, output: 'yolov5' } };
+    const badPrecision = { ...manifestJson, capDetector: { ...manifestJson.capDetector, precision: 'int8' } };
+    expect(() => parseManifest(badOutput)).toThrow();
+    expect(() => parseManifest(badPrecision)).toThrow();
   });
 
   it('キャップ検出モデルに必要なクラスが無ければ例外にする', () => {
@@ -48,7 +57,7 @@ describe('modelUrl / loadManifest', () => {
 
   it('キャップ検出モデルも BASE_URL 配下の models/ を指す', () => {
     const m = parseManifest(manifestJson);
-    expect(modelUrl(m.capDetector)).toBe(`${import.meta.env.BASE_URL}models/cap-detector-20250510.fp16.onnx`);
+    expect(modelUrl(m.capDetector)).toBe(`${import.meta.env.BASE_URL}models/cap-detector-y26m-1280.fp32.onnx`);
   });
 
   it('取得に失敗したら分かる例外にする', async () => {

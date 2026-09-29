@@ -83,16 +83,18 @@ cap-pose-lab/
     { "id": "detailed", "label": "くわしい", "file": "yolo26m-pose.fp32.onnx", "imgsz": 960, "sizeMB": 84 }
   ],
   "capDetector": {
-    "version": "20250510",
-    "weights": "yolo8m_20250510.pt",
-    "sha256": "ade4f5c9d33e204bf8a8668b358bd9078861abd983ffbc8b61330e8d5f5b3399",
-    "file": "cap-detector-20250510.fp16.onnx",
-    "source": "https://github.com/koshien2015/cap-pose-lab/releases/tag/cap-detector-20250510",
-    "imgsz": 640,
+    "version": "y26m-1280",
+    "weights": "yolo26m-1280px-120epoch.pt",
+    "sha256": "f6d5f8dc339f9396b6107a5e6d1b420f521227b101df29bd887a09e92baed87f",
+    "file": "cap-detector-y26m-1280.fp32.onnx",
+    "source": "https://github.com/koshien2015/cap-pose-lab/releases/tag/cap-detector-y26m-1280",
+    "imgsz": 1280,
+    "sizeMB": 84.3,
+    "precision": "fp32",
     "preprocess": "raw",
     "classes": ["cap", "pitcher_motion", "batter_stance", "umpire", "catcher", "pitcher_release",
                 "batter_swing", "catcher_stance", "catcher_catch", "catcher_throw", "catcher_miss"],
-    "output": "yolov8-raw",
+    "output": "yolo26-end2end",
     "license": "AGPL-3.0"
   }
 }
@@ -100,7 +102,8 @@ cap-pose-lab/
 
 - `weights` と `sha256`: `tools/export_models.py` は `source` の Release から重みを取得し、ハッシュが一致しなければ止まる
 
-- `preprocess`: `raw`（元フレーム）か `enhanced`（3フレーム差分によるモーション強調）。20250510 は元フレームで学習したので `raw`
+- `preprocess`: `raw`（元フレーム）か `enhanced`（3フレーム差分によるモーション強調）。今のモデル（YOLO26m-P2・入力 1280）は元フレームで学習したので `raw`
+- `precision`: `fp32` か `fp16`。fp16 は書き出し後に変換する（入出力は float32 のまま）
 - `output`: `yolo26-end2end`（NMS 不要）か `yolov8-raw`（`[1, 4+クラス数, anchors]`。NMS を JS で行う）
 
 ### 5.2 CI での書き出しと配信
@@ -108,7 +111,7 @@ cap-pose-lab/
 - GitHub Actions が、公式の YOLO26 Pose の `.pt` と Release の検出モデル `.pt` をダウンロードし、`tools/export_models.py` で ONNX に書き出して、Pages の配信物に同梱する
 - ultralytics のバージョンは固定する（検証時は 8.4.53）
 - 姿勢推定は fp32 で配信する。検証（Mac Chrome）では fp16 が fp32 より約2倍遅かった
-- キャップ検出は fp32 だと 104MB になり、1ファイル 100MB の制限を超えるので **fp16（約 52MB）** で配信する。fp32 が必要になったら、ONNX の外部データ形式で分割する
+- キャップ検出（YOLO26m-P2・入力 1280）は fp32 で 84MB なので、そのまま配信する。1ファイルが 100MB を超えるモデルに替えるときは `precision: "fp16"` にする（2026-09-29 の計測では、旧モデル YOLOv8m@640 で fp16 は fp32 の約1.8倍遅かった）
 - ORT の wasm 本体（`ort-wasm-simd-threaded.jsep.{wasm,mjs}`、約 28MB）も同一オリジンから配信する。`env.wasm.wasmPaths` には **mjs と wasm の両方を明示する**（省略するとバンドル済みのチャンクがスレッド用 Worker に読み込まれ、止まる。検証で確認済み）
 
 ### 5.3 GitHub Pages の制約
@@ -207,7 +210,7 @@ cap-pose-lab/
 
 | ファイル | 役割 | 移植元 |
 |---|---|---|
-| `decodeDetect.ts` | 出力 `[1, 4+クラス数, anchors]` を解読し、信頼度 0.15 以上をクラスごとに NMS にかけ、元の動画の座標に戻す | ultralytics の後処理 |
+| `decodeDetect.ts` | 出力を解読し、信頼度が 0.15 より大きいものを元の動画の座標に戻す。`yolo26-end2end`（`[1, 300, 6]`）はそのまま、`yolov8-raw`（`[1, 4+クラス数, anchors]`）はクラスごとに NMS にかける | ultralytics の後処理 |
 | `gate.ts` | 推論の間引き。キャップが見つかるまで5コマに1回推論し、見つけたら30コマ連続で推論する。見つけたときは、直前の推論していないコマ（最大4コマ）を遡って推論させる | `prefilter.py` の `InferenceGate` に遡りを追加 |
 | `enhance.ts` | 3コマ差分によるモーション強調（manifest の `preprocess` が `enhanced` のとき） | `tennis.py` |
 | `release.ts` | 投手のクラスが `pitcher_motion` から `pitcher_release` に切り替わったコマをリリース候補にする | `pitching_analysis.py` の `detect_release` |
@@ -254,7 +257,7 @@ cap-pose-lab/
 {
   "schema": "cap-pose-lab/trajectory", "version": 1,
   "video": { "file": "…", "fps": 59.94, "width": 1080, "height": 1920, "frameCount": 420 },
-  "model": { "weights": "yolo8m_20250510.pt", "imgsz": 640, "preprocess": "raw", "conf": 0.15 },
+  "model": { "weights": "yolo26m-1280px-120epoch.pt", "imgsz": 1280, "preprocess": "raw", "conf": 0.15 },
   "release": { "frame": 123, "source": "auto" },          // source: auto | manual | none
   "detections": [{ "frame": 125, "x": 540.2, "y": 812.7, "conf": 0.42 }],
   "inferredFrames": [[0, 1], [5, 6], [120, 156]],         // 推論したコマの範囲（end は含まない）
@@ -318,7 +321,7 @@ cap-pose-lab/
 - **iPhone Safari は未計測**（WebGPU の速度、HEVC・縦動画・60fps のデコード、メモリ）。実装の早い段階で、実機で検証ページ相当の計測をする
 - WebGPU で1フレームあたり約 20ms の固定費がある（n で 640 と 960 の差がほぼない）。結果の読み戻しか、CPU に回るノードが原因とみられる。速くする余地として後で調べる
 - キャップ検出モデルは入力 640 で学習している。manifest は学習時と同じ 640 で始め、960 で推論したときの検出率と比べて見直す（キャップは画面上で小さいため、960 のほうが拾える可能性がある）
-- キャップ検出は fp16 で配信する。fp16 は姿勢推定の検証で fp32 より約2倍遅く、wasm での速度は未計測。実装の早い段階で Mac Chrome と iPhone で1コマの時間を測る
+- キャップ検出（入力 1280・fp32）は Mac Chrome で1回 146ms（WebGPU）・4.6秒（wasm）。wasm の端末では 20秒の動画で約20分かかる。iPhone は未計測
 - RANSAC の閾値（画面の高さの 1.5%）は仮の値。実際の映像での確認で見直す
 - GitHub Pages の転送量の目安（月 100GB）。キャッシュを効かせ、「くわしい」モードは必要な人だけが選ぶ設計で抑える
 - ライセンス: Ultralytics の重み（AGPL-3.0）をブラウザに配るため、リポジトリ全体を AGPL-3.0 で公開する

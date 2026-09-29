@@ -11,7 +11,7 @@
 | 用途 | 重み | 入手元 |
 |---|---|---|
 | 姿勢推定 | YOLO26 n / s / m Pose | Ultralytics 公式 |
-| キャップ・役割検出 | `yolo8m_20250510.pt`（11クラス, 入力 640 で学習） | このリポジトリの Release `cap-detector-20250510` |
+| キャップ・役割検出 | `yolo26m-1280px-120epoch.pt`（YOLO26m-P2・11クラス, 入力 1280・元フレームで学習） | このリポジトリの Release `cap-detector-y26m-1280` |
 
 ONNX への書き出しは CI で行い、GitHub Pages に同梱する。重みは git には入れない。
 
@@ -58,4 +58,4 @@ CI では GPU を使った推論を確かめられないため、公開後に実
 
 差分強調（`preprocess: "enhanced"`）のモデルに差し替えたときは、この確認をやり直す（いまのモデルは元のフレームで学習しているため、強調の経路は合成データでしか確かめていない）。
 
-診断ページ（`diagnostics.html`）の「キャップ検出で推論を試す」で、キャップ検出モデルの推論1回の時間を測れる。手元では `?ep=wasm`（CPU 処理）と `?detector=<ファイル名>`（`export_models.py --keep-fp32` で残した fp32 との比較）を付けられる。
+診断ページ（`diagnostics.html`）の「キャップ検出で推論を試す」で、キャップ検出モデルの推論1回の時間を測れる。手元では `?ep=wasm`（CPU 処理）と `?detector=<ファイル名>`（別の ONNX との比較。manifest が fp16 のとき `export_models.py --keep-fp32` で fp32 を残せる）を付けられる。

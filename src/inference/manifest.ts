@@ -31,8 +31,11 @@ const CapDetectorSchema = z
     file: z.string().min(1),
     imgsz: z.number().int().positive(),
     sizeMB: z.number().positive(),
+    /** fp16 は書き出し後に変換する（入出力は float32 のまま） */
+    precision: z.enum(['fp32', 'fp16']),
     preprocess: z.enum(['raw', 'enhanced']),
-    output: z.literal('yolov8-raw'),
+    /** yolov8-raw: [1, 4+nc, N]（NMS が要る）/ yolo26-end2end: [1, 300, 6]（NMS 不要） */
+    output: z.enum(['yolov8-raw', 'yolo26-end2end']),
     classes: z.array(z.string().min(1)).min(1),
     license: z.string().min(1),
   })

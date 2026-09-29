@@ -29,8 +29,8 @@ export function estimateSeconds(
   return (frames * msPerFrame) / 1000;
 }
 
-/** キャップ検出1回の基準（Mac Chrome・fp16 の実測。計画5 Task 1）。スマホは MOBILE_FACTOR 倍で仮置き */
-const CAP_DETECT_MS: Record<ExecutionProvider, number> = { webgpu: 81, wasm: 1138 };
+/** キャップ検出1回の基準（Mac Chrome の実測。YOLO26m・入力 1280x736・fp32）。スマホは MOBILE_FACTOR 倍で仮置き */
+const CAP_DETECT_MS: Record<ExecutionProvider, number> = { webgpu: 146, wasm: 4627 };
 
 export function estimateDetectSeconds(
   frames: number,

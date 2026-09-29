@@ -6,7 +6,7 @@
 
 import type { InferenceSession } from 'onnxruntime-web';
 
-import { decodeDetections } from '../capDetect/decodeDetect';
+import { decodeOutput } from '../capDetect/decodeDetect';
 import { type FrameImage, type LoopFrame, type RgbaInput, runDetectLoop, withEnhancement } from '../capDetect/detectLoop';
 import { classIds, type FrameRecord, toFrameRecord } from '../capDetect/records';
 import { estimateRemainingMs } from './eta';
@@ -84,7 +84,7 @@ export async function analyzeDetectVideo(
     const output = await runModel(session, rgbaToChw(input.rgba, input.width, input.height), input.width, input.height);
     inferMs += performance.now() - t0;
     inferCount += 1;
-    return toFrameRecord(frame, decodeDetections(output, detector.classes.length, input.letterbox), ids);
+    return toFrameRecord(frame, decodeOutput(output, detector.output, detector.classes.length, input.letterbox), ids);
   };
   const { records, images } = await runDetectLoop(frames, { detect, disposeImage: close, signal: opts.signal });
   return { fileName, fps, ...size, frameCount, records, images, msPerInference: inferCount > 0 ? inferMs / inferCount : 0 };

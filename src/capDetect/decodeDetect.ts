@@ -81,3 +81,38 @@ export function decodeDetections(output: Float32Array, numClasses: number, lb: L
     box: [toSourceX(d.box[0], lb), toSourceY(d.box[1], lb), toSourceX(d.box[2], lb), toSourceY(d.box[3], lb)],
   }));
 }
+
+const END2END_ROW = 6;
+
+const toSourceBox = (box: Box, lb: Letterbox): Box => [
+  toSourceX(box[0], lb),
+  toSourceY(box[1], lb),
+  toSourceX(box[2], lb),
+  toSourceY(box[3], lb),
+];
+
+/**
+ * YOLO26 の end2end 出力 [1, 300, 6]（1行 = x1, y1, x2, y2, score, cls。座標は入力画素）を検出のリストにする。
+ * モデルの中で重なりを消してあるので NMS はしない。ultralytics と同じく、信頼度が閾値「より大きい」行だけを残す。
+ */
+export function decodeEnd2End(output: Float32Array, lb: Letterbox, conf: number = DETECT_CONF): Detection[] {
+  if (output.length % END2END_ROW !== 0) {
+    throw new Error(`出力の長さが ${END2END_ROW} の倍数ではありません: ${output.length}`);
+  }
+  const threshold = Math.fround(conf);
+  const found: Detection[] = [];
+  for (let offset = 0; offset < output.length; offset += END2END_ROW) {
+    const score = output[offset + 4];
+    if (!(score > threshold)) continue;
+    const box: Box = [output[offset], output[offset + 1], output[offset + 2], output[offset + 3]];
+    found.push({ box: toSourceBox(box, lb), score, cls: Math.round(output[offset + 5]) });
+  }
+  return found;
+}
+
+export type DetectorOutput = 'yolov8-raw' | 'yolo26-end2end';
+
+/** manifest の出力形式に合わせて解読する（どちらも表示座標で返す） */
+export function decodeOutput(output: Float32Array, format: DetectorOutput, numClasses: number, lb: Letterbox): Detection[] {
+  return format === 'yolo26-end2end' ? decodeEnd2End(output, lb) : decodeDetections(output, numClasses, lb);
+}

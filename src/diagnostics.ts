@@ -34,7 +34,9 @@ async function tryDetector(ep: 'webgpu' | 'wasm') {
   const file = override && /^[\w.-]+\.onnx$/.test(override) ? override : manifest.capDetector.file;
   const bytes = await fetchModel(modelUrl({ file }), await openModelCache(), () => undefined);
   const { session, createMs } = await createSession(bytes, ep);
-  const [w, h] = [640, 384];
+  // 横長 16:9 の動画を入れたときと同じ大きさ（長辺 = imgsz、短辺は 32 の倍数まで埋める）
+  const w = manifest.capDetector.imgsz;
+  const h = Math.ceil((w * 9) / 16 / 32) * 32;
   const input = new Float32Array(3 * w * h).fill(0.45);
   const first = await runPose(session, input, w, h);
   const t0 = performance.now();
